@@ -1,5 +1,8 @@
 ;;;; package.lisp
 
 (defpackage #:lbot
-  (:use #:cl))
+  (:use #:cl)
+  (:export
+   :connect
+   :connect-async))
 
