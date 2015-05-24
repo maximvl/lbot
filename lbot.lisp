@@ -64,19 +64,25 @@
     (skip-stanza () '(ignored))))
 
 (defun read-until (stream condition &key (buff-size 100))
-  (let ((buffer (make-array buff-size))
-        (data (make-array 0))
+  (let ((buffer (make-array buff-size :adjustable t :fill-pointer t))
         (readed 0)
         (total-readed 0)
         (result nil))
     (loop
-       do (progn
-            (setf readed (read-sequence buffer stream))
-            (incf total-readed readed)
-            (setf data (concatenate 'vector data buffer))
-            (setf result (funcall condition data))
-            (when result (return (values result data total-readed)))
-            (when (< readed buff-size) (return (values nil data total-readed)))))))
+       (setf readed (read-sequence buffer stream
+                                   :start total-readed))
+       (decf readed total-readed)
+       (incf total-readed readed)
+       (setf result (funcall condition buffer))
+       (when result
+         (setf (fill-pointer buffer) readed)
+         (return (values result buffer total-readed)))
+       (when (< readed buff-size)
+         (setf (fill-pointer buffer) readed)
+         (return (values nil buffer total-readed)))
+       (adjust-array buffer
+                     (+ (array-total-size buffer) buff-size)
+                     :fill-pointer t))))
 
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
