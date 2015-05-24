@@ -32,9 +32,9 @@
                                      :return-suffix t)
     (when starts
       (let ((rest2 (trim rest)))
-        (if (char= (aref rest2 0) #\:)
-            (trim (subseq rest2 1))
-            rest2)))))
+        (case (aref rest2 0)
+          ((#\: #\,) (trim (subseq rest2 1)))
+          (t rest2))))))
 
 (defun process-chat-message (connection message)
   (unless (process-personal connection message)
@@ -49,6 +49,9 @@
     ((equal "errors")
      (reply-chat connection (xmpp:from message)
                  (format-errors) (xmpp::type- message)))
+    ((equal "rates")
+     (reply-chat connection (xmpp:from message)
+                 (format-rates (get-rates '("USDRUB" "EURRUB"))) (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
                  text (xmpp::type- message)))
@@ -79,7 +82,13 @@
     (if starts
         (progn
           (setf (xmpp:body message) starts)
-          (process-personal connection message))
+          (unless (process-personal connection message)
+            (let* ((pos (position #\/ (xmpp:from message)))
+                   (to (if pos
+                           (subseq (xmpp:from message) (1+ pos))
+                           (xmpp:from message))))
+              (reply-chat connection (xmpp:from message)
+                          (format nil "~a: No." to) (xmpp::type- message)))))
         (process-common connection message))))
 
 (defparameter *errors* nil)
@@ -364,3 +373,18 @@
                       (get-erl-man-function-description data fun arity)))
                  (t #'get-erl-man-module-discription))))
           (read-until stream condition :result-only t))))))
+
+
+(defun get-rates (pairs)
+  (let ((api-url (format nil "http://finance.yahoo.com/d/quotes.csv?e=.csv&f=sl1d1t1&s=~{~a=X~^+~}" pairs)))
+    (multiple-value-bind (data status) (drakma:http-request api-url)
+      (when (= 200 status)
+      (let ((data (flexi-streams:octets-to-string 
+                   data :external-format :utf8)))
+        (cl-csv:read-csv data))))))
+
+(defun format-rates (rates)
+  (with-output-to-string (s)
+    (loop for r in rates
+       do (destructuring-bind (name curr date time) r
+            (format s "~&~a : ~a (updated: ~a ~a)" name curr date time)))))

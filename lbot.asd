@@ -10,7 +10,8 @@
                #:optima
                #:optima.ppcre
                #:lparallel
-               #:drakma)
+               #:drakma
+               #:cl-csv)
   :components ((:file "package")
                (:file "lbot")))
 
