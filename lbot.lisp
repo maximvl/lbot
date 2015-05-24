@@ -46,9 +46,32 @@
   ;; (format xmpp:*debug-stream* "~&personal: ~a" message)
   ;; (format xmpp:*debug-stream* "~&personal: ~a" (xmpp:body message))
   (optima:match (xmpp:body message)
+    ((equal "errors")
+     (reply-chat connection (xmpp:from message)
+                 (format-errors) (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
-                 text (xmpp::type- message)))))
+                 text (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^man ([^:]+):([^/]+)/(.+)$" m f a)
+     (reply-chat connection (xmpp:from message)
+                 (get-erl-man-info m f a) (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^man ([^:]+):([^/]+)$" m f)
+     (reply-chat connection (xmpp:from message)
+                 (get-erl-man-info m f) (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^man ([^:]+)$" m)
+     (reply-chat connection (xmpp:from message)
+                 (get-erl-man-info m) (xmpp::type- message)))))
+
+(defun my-subseq (seq start &optional end)
+  (if (> end (length seq))
+      (subseq seq start)
+      (subseq seq start end)))
+
+(defun format-errors ()
+  (with-output-to-string (s)
+    (format s "~a total, last errors:" (length *errors*))
+    (loop for e in (my-subseq *errors* 0 5)
+       do (format s "~&~a" e))))
 
 (defun process-groupchat-message (connection message)
   (let ((starts (starts-with-nick (xmpp:username connection)
@@ -59,11 +82,39 @@
           (process-personal connection message))
         (process-common connection message))))
 
+(defparameter *errors* nil)
+
+(defclass user-error ()
+  ((object
+    :accessor object
+    :initarg :object)
+   (catched-at
+    :accessor catched-at
+    :initarg :catched-at
+    :initform (get-universal-time))))
+
+(defun make-user-error (obj)
+  (make-instance 'user-error :object obj))
+
+(defmethod print-object ((object user-error) stream)
+  (print-unreadable-object (object stream :type nil :identity nil)
+    (format stream "error ~A at ~A" (object object)
+            (format-time (catched-at object)))))
+
+(defun format-time (time)
+  (multiple-value-bind
+        (second minute hour date month year day-of-week dst-p tz)
+      (decode-universal-time time)
+    (declare (ignore second day-of-week dst-p tz))
+    (format nil "~a-~a-~a ~a:~a" date month year hour minute)))
+
 (defun callback-with-restart (&rest args)
-  (restart-case (apply #'xmpp::default-stanza-callback args)
+  (restart-case
+      (handler-case (apply #'xmpp::default-stanza-callback args)
+        (t (err) (push (make-user-error err) *errors*)))
     (skip-stanza () '(ignored))))
 
-(defun read-until (stream condition &key (buff-size 100))
+(defun read-until (stream condition &key (buff-size 1024) result-only)
   (let ((buffer (make-array buff-size :adjustable t :fill-pointer t))
         (readed 0)
         (total-readed 0)
@@ -73,32 +124,40 @@
                                    :start total-readed))
        (decf readed total-readed)
        (incf total-readed readed)
+       (when (< readed buff-size)
+         (setf (fill-pointer buffer) total-readed))
        (setf result (funcall condition buffer))
        (when result
-         (setf (fill-pointer buffer) readed)
+         (when result-only
+           (return result))
          (return (values result buffer total-readed)))
        (when (< readed buff-size)
-         (setf (fill-pointer buffer) readed)
+         (when result-only
+           (return result))
          (return (values nil buffer total-readed)))
        (adjust-array buffer
                      (+ (array-total-size buffer) buff-size)
                      :fill-pointer t))))
 
+(defun get-http-page-title (url)
+  (multiple-value-bind (stream status headers) (drakma:http-request url :want-stream t)
+    (unwind-protect
+         (when (and (= status 200) (search "text/html" (cdr (assoc :content-type headers))))
+           (read-until stream #'(lambda (data)
+                                  (ppcre:register-groups-bind
+                                      (title)
+                                      ("(?i)<title>([^<]*)</title>" data :sharedp t)
+                                    title))
+                       :result-only t))
+      (close stream))))
+
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
     ((optima.ppcre:ppcre "(http[s]?://[\\S]+)" url)
-     (multiple-value-bind (stream status headers) (drakma:http-request url :want-stream t)
-       (unwind-protect
-            (when (and (= status 200) (search "text/html" (cdr (assoc :content-type headers))))
-              (let ((match (read-until stream #'(lambda (data)
-                                                  (ppcre:register-groups-bind
-                                                      (title)
-                                                      ("(?i)<title>([^<]*)</title>" data :sharedp t)
-                                                    title)))))
-                (when match
-                  (reply-chat connection (xmpp:from message)
-                              match (xmpp::type- message)))))
-         (close stream))))))
+     (let ((title (get-http-page-title url)))
+       (when title
+         (reply-chat connection (xmpp:from message)
+                     title (xmpp::type- message)))))))
 
 (defun reply-chat (connection to reply kind)
   (if (string-equal kind "groupchat")
@@ -213,3 +272,80 @@
 (defun kill-thread (thread)
   (when (bordeaux-threads:threadp thread)
     (bordeaux-threads:destroy-thread thread)))
+
+;; (defun man-content (manfile)
+;;   (let ((out (make-string-output-stream))
+;;         (err (make-string-output-stream)))
+;;     (multiple-value-bind (res code)
+;;         (external-program:run "man" `("-P" "cat" ,manfile)
+;;                               :output out :error err)
+;;       (declare (ignore res))
+;;       (if (zerop code)
+;;           (values (get-output-stream-string out) t)
+;;           (values (get-output-stream-string err) nil)))))
+
+;; (defun find-in-man (man start-regexp &key end-regexp max-chars)
+;;   (let ((start (ppcre:all-matches start-regexp man)))
+;;     (when start
+;;       (when end-regexp
+;;         (let ((end (ppcre:all-matches end-regexp man :start (cadr start))))
+;;           (subseq man (car start) (cadr end))))
+;;       (when max-chars
+;;         (subseq man (car start) (+ (car start) max-chars))))))
+
+;; (defun erl-fun-regex (fun &optional arity)
+;;   (if (null arity)
+;;       (format nil "~a\\([^)]*\\)\\s+->" fun)
+;;       (cond
+;;         ((zerop arity) (format nil "~a\\(\\)\\s+->" fun))
+;;         (t (format nil "~a\\(([^),]+,){~a}[^)]+\\)\\s+->" fun (1- arity))))))
+
+;; (defun find-erlang-fun (man fun &optional arity)
+;;   (find-in-man man (erl-fun-regex fun arity) :max-chars 300))
+
+(defun erl-man-link (module &optional fun arity)
+  (string-downcase
+   (cond
+     ((and fun arity) (format nil "http://www.erlang.org/doc/man/~a.html#~a-~a" module fun arity))
+     (fun (format nil "http://www.erlang.org/doc/man/~a.html#~a" module fun))
+     (t (format nil "http://www.erlang.org/doc/man/~a.html" module)))))
+
+(defun get-erl-man-module-discription (data)
+  (let ((match (ppcre:all-matches "MODULE SUMMARY" data)))
+    (when match
+      (ppcre:register-groups-bind (summary)
+          ("<div class=\"REFBODY\">([^<]+)</div>"
+           data
+           :start (cadr match)
+           :sharedp t)
+        summary))))
+
+(defun get-erl-man-function-description (data function &optional arity)
+  (let* ((regex (if arity
+                    (format nil "<a name=\"~a-~a\"" function arity)
+                    (format nil "<a name=\"~a-" function)))
+         (match (ppcre:all-matches regex data)))
+    (when match
+      (let ((result
+             (ppcre:register-groups-bind (text)
+                 ("(?s)<div class=\"REFBODY\">.*<\/div><\/p>\\n<div class=\"REFBODY\">(.*)<a"
+                  data
+                  :start (cadr match)
+                  :sharedp t)
+               text)))
+        (when result
+          (setf result (coerce result 'string))
+          (trim (ppcre:regex-replace-all "\\s+" (ppcre:regex-replace-all "<[^>]*>" result "") " ")))))))
+
+(defun get-erl-man-info (module &optional fun arity)
+  (let ((link (erl-man-link module fun arity)))
+    (multiple-value-bind (stream status)
+        (drakma:http-request link :want-stream t)
+      (when (= status 200)
+        (let ((condition
+               (cond
+                 (fun
+                  #'(lambda (data)
+                      (get-erl-man-function-description data fun arity)))
+                 (t #'get-erl-man-module-discription))))
+          (read-until stream condition :result-only t))))))
