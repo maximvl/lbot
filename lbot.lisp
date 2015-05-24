@@ -39,7 +39,7 @@
 (defun process-chat-message (connection message)
   (unless (process-personal connection message)
     (unless (process-common connection message)
-      (reply-chat connection (xmpp:from message) 
+      (reply-chat connection (xmpp:from message)
                   "No." (xmpp::type- message)))))
 
 (defun process-personal (connection message)
@@ -47,7 +47,7 @@
   ;; (format xmpp:*debug-stream* "~&personal: ~a" (xmpp:body message))
   (optima:match (xmpp:body message)
     ((optima.ppcre:ppcre "^say (.*)$" text)
-     (reply-chat connection (xmpp:from message) 
+     (reply-chat connection (xmpp:from message)
                  text (xmpp::type- message)))))
 
 (defun process-groupchat-message (connection message)
@@ -81,15 +81,15 @@
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
     ((optima.ppcre:ppcre "(http[s]?://[\\S]+)" url)
-     (let ((stream (drakma:http-request url :want-stream t)))
-       (multiple-value-bind (match data)
-           (read-until stream #'(lambda (data) 
-                                  (ppcre:all-matches "<title>([^<]*)</title>" 
-                                                     data)))
-         (when match
-           (reply-chat connection (xmpp:from message) 
-                       (subseq data (car match) (cadr match))
-                       (xmpp::type- message))))))))
+     (let* ((stream (drakma:http-request url :want-stream t))
+            (match (read-until stream #'(lambda (data)
+                                          (ppcre:register-groups-bind
+                                              (title)
+                                              ("(?i)<title>([^<]*)</title>" data :sharedp t)
+                                            title)))))
+       (when match
+         (reply-chat connection (xmpp:from message)
+                     match (xmpp::type- message)))))))
 
 (defun reply-chat (connection to reply kind)
   (if (string-equal kind "groupchat")
