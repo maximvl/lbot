@@ -11,7 +11,8 @@
                #:optima.ppcre
                #:lparallel
                #:drakma
-               #:cl-csv)
+               #:cl-csv
+               #:split-sequence)
   :components ((:file "package")
                (:file "lbot")))
 

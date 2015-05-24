@@ -51,7 +51,14 @@
                  (format-errors) (xmpp::type- message)))
     ((equal "rates")
      (reply-chat connection (xmpp:from message)
-                 (format-rates (get-rates '("USDRUB" "EURRUB"))) (xmpp::type- message)))
+                 (format-rates (get-rates '("USDRUB" "EURRUB"))) 
+                 (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^rates (.*)$" pairs)
+     (reply-chat connection (xmpp:from message)
+                 (format-rates (get-rates (split-sequence:split-sequence
+                                           #\Space
+                                           (string-upcase pairs))))
+                 (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
                  text (xmpp::type- message)))
@@ -360,7 +367,6 @@
           (ppcre:regex-replace-all "<[^>]*>" str "") " ")
          ">")))
 
-
 (defun get-erl-man-info (module &optional fun arity)
   (let ((link (erl-man-link module fun arity)))
     (multiple-value-bind (stream status)
@@ -374,7 +380,6 @@
                  (t #'get-erl-man-module-discription))))
           (read-until stream condition :result-only t))))))
 
-
 (defun get-rates (pairs)
   (let ((api-url (format nil "http://finance.yahoo.com/d/quotes.csv?e=.csv&f=sl1d1t1&s=~{~a=X~^+~}" pairs)))
     (multiple-value-bind (data status) (drakma:http-request api-url)
@@ -386,5 +391,8 @@
 (defun format-rates (rates)
   (with-output-to-string (s)
     (loop for r in rates
-       do (destructuring-bind (name curr date time) r
-            (format s "~&~a : ~a (updated: ~a ~a)" name curr date time)))))
+       do (destructuring-bind (name rate date time) r
+            (let ((curr1 (subseq name 0 3))
+                  (curr2 (subseq name 3 6)))
+              (format s "~&1 ~a = ~a ~a (updated: ~a ~a)" 
+                      curr1 rate curr2 date time))))))
