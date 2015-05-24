@@ -326,16 +326,31 @@
                     (format nil "<a name=\"~a-" function)))
          (match (ppcre:all-matches regex data)))
     (when match
-      (let ((result
+      (let ((sig
+             (ppcre:register-groups-bind (text)
+                 ("<span class=\"bold_code\">(.*)<\/span>"
+                  data
+                  :start (cadr match)
+                  :sharedp t)
+               (coerce text 'string)))
+            (result
              (ppcre:register-groups-bind (text)
                  ("(?s)<div class=\"REFBODY\">.*<\/div><\/p>\\n<div class=\"REFBODY\">(.*)<a"
                   data
                   :start (cadr match)
                   :sharedp t)
-               text)))
-        (when result
-          (setf result (coerce result 'string))
-          (trim (ppcre:regex-replace-all "\\s+" (ppcre:regex-replace-all "<[^>]*>" result "") " ")))))))
+               (coerce text 'string))))
+        (when (and sig result)
+          (format nil "~a~%~a" (sanitize-string sig) (sanitize-string result)))))))
+
+(defun sanitize-string (str)
+  (trim (ppcre:regex-replace-all
+         "&gt;"
+         (ppcre:regex-replace-all
+          "\\s+"
+          (ppcre:regex-replace-all "<[^>]*>" str "") " ")
+         ">")))
+
 
 (defun get-erl-man-info (module &optional fun arity)
   (let ((link (erl-man-link module fun arity)))
