@@ -81,15 +81,18 @@
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
     ((optima.ppcre:ppcre "(http[s]?://[\\S]+)" url)
-     (let* ((stream (drakma:http-request url :want-stream t))
-            (match (read-until stream #'(lambda (data)
-                                          (ppcre:register-groups-bind
-                                              (title)
-                                              ("(?i)<title>([^<]*)</title>" data :sharedp t)
-                                            title)))))
-       (when match
-         (reply-chat connection (xmpp:from message)
-                     match (xmpp::type- message)))))))
+     (multiple-value-bind (stream status headers) (drakma:http-request url :want-stream t)
+       (unwind-protect
+            (when (and (= status 200) (search "text/html" (cdr (assoc :content-type headers))))
+              (let ((match (read-until stream #'(lambda (data)
+                                                  (ppcre:register-groups-bind
+                                                      (title)
+                                                      ("(?i)<title>([^<]*)</title>" data :sharedp t)
+                                                    title)))))
+                (when match
+                  (reply-chat connection (xmpp:from message)
+                              match (xmpp::type- message)))))
+         (close stream))))))
 
 (defun reply-chat (connection to reply kind)
   (if (string-equal kind "groupchat")
