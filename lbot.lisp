@@ -61,7 +61,8 @@
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
-                 text (xmpp::type- message)))
+                 text (xmpp::type- message)
+                 :highlight (reply-nick (xmpp:from message))))
     ((optima.ppcre:ppcre "^man ([^:]+):([^/]+)/(.+)$" m f a)
      (reply-chat connection (xmpp:from message)
                  (get-erl-man-info m f a) (xmpp::type- message)))
@@ -70,7 +71,15 @@
                  (get-erl-man-info m f) (xmpp::type- message)))
     ((optima.ppcre:ppcre "^man ([^:]+)$" m)
      (reply-chat connection (xmpp:from message)
-                 (get-erl-man-info m) (xmpp::type- message)))))
+                 (get-erl-man-info m) (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^idea (.+)$" idea)
+     (add-idea (reply-nick (xmpp:from message)) idea)
+     (reply-chat connection (xmpp:from message)
+                 "got it" (xmpp::type- message) 
+                 :highlight (reply-nick (xmpp:from message))))
+    ((equal "ideas")
+     (reply-chat connection (xmpp:from message)
+                 (get-ideas) (xmpp::type- message)))))
 
 (defun my-subseq (seq start &optional end)
   (if (> end (length seq))
@@ -155,16 +164,29 @@
                      (+ (array-total-size buffer) buff-size)
                      :fill-pointer t))))
 
+(defun convert (string from to)
+  (babel:octets-to-string (babel:string-to-octets string
+                                                  :encoding from)
+                          :encoding to))
+
 (defun get-http-page-title (url)
-  (multiple-value-bind (stream status headers) (drakma:http-request url :want-stream t)
+  (multiple-value-bind (stream status headers)
+      (drakma:http-request url :want-stream t :force-binary t)
     (unwind-protect
-         (when (and (= status 200) (search "text/html" (cdr (assoc :content-type headers))))
-           (read-until stream #'(lambda (data)
-                                  (ppcre:register-groups-bind
-                                      (title)
-                                      ("(?i)<title>([^<]*)</title>" data :sharedp t)
-                                    title))
-                       :result-only t))
+         (when (and (= status 200) 
+                    (search "text/html" (cdr (assoc :content-type headers))))
+           (let ((encoding drakma:*drakma-default-external-format*))
+             (read-until stream #'(lambda (data)
+                                    (let ((data2 (flexi-streams:octets-to-string data :external-format encoding)))
+                                      (when (eq encoding drakma:*drakma-default-external-format*)
+                                        (ppcre:register-groups-bind (charset)
+                                            ("(?i)charset=\"?([^\"\\s>]+)" data2)
+                                          (setf encoding (make-keyword charset))
+                                          (setf data2 (flexi-streams:octets-to-string data :external-format encoding))))
+                                      (ppcre:register-groups-bind
+                                          (title)
+                                          ("(?i)<title>([^<]*)</title>" data2 :sharedp t)
+                                        title))) :result-only t)))
       (close stream))))
 
 (defun process-common (connection message)
@@ -175,10 +197,15 @@
          (reply-chat connection (xmpp:from message)
                      title (xmpp::type- message)))))))
 
-(defun reply-chat (connection to reply kind)
+(defun reply-nick (from)
+  (let ((pos (position #\/ from)))
+    (when pos (subseq from (1+ pos)))))
+
+(defun reply-chat (connection to reply kind &key highlight)
   (if (string-equal kind "groupchat")
     (let* ((pos (position #\/ to))
-           (to (if pos (subseq to 0 pos) to)))
+           (to (if pos (subseq to 0 pos) to))
+           (reply (if highlight (format nil "~a: ~a" highlight reply) reply)))
       (xmpp:message connection to reply :type :groupchat))
     (xmpp:message connection to reply :type :chat)))
 
@@ -396,3 +423,16 @@
                   (curr2 (subseq name 3 6)))
               (format s "~&1 ~a = ~a ~a (updated: ~a ~a)" 
                       curr1 rate curr2 date time))))))
+
+
+(defparameter *ideas* nil)
+
+(defun add-idea (from idea)
+  (push (list from idea (get-universal-time)) *ideas*))
+
+
+(defun get-ideas ()
+  (format nil "ideas: ~{~&~a~}" *ideas*))
+
+(defun make-keyword (string)
+  (intern (string-upcase string) :keyword))
