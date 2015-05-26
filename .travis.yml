@@ -7,5 +7,10 @@ env:
     - LISP=clisp
     - LISP=ecl
 
+install:
+  - curl -L https://github.com/luismbo/cl-travis/raw/master/install.sh | sh
+
 script:
-  - cl -e '(ql:quickload :lbot-test) (prove:run :lbot-test)'
+  - cl -e '(ql:quickload :lbot-test)
+           (unless (prove:run :lbot-test)
+              (uiop:quit 1))'
