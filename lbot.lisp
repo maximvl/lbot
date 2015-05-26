@@ -53,11 +53,16 @@
      (reply-chat connection (xmpp:from message)
                  (format-rates (get-rates '("USDRUB" "EURRUB"))) 
                  (xmpp::type- message)))
-    ((optima.ppcre:ppcre "^rates (.*)$" pairs)
+    ((optima.ppcre:ppcre "^rates ([^ ]*)$" pairs)
      (reply-chat connection (xmpp:from message)
                  (format-rates (get-rates (split-sequence:split-sequence
                                            #\Space
                                            (string-upcase pairs))))
+                 (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^rates ([^ ]*) (.*)$" curr1 curr2)
+     (reply-chat connection (xmpp:from message)
+                 (format-rates (get-rates (string-upcase curr1)
+                                          (string-upcase curr2)))
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
