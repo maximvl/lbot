@@ -1,0 +1,9 @@
+env:
+  matrix:
+    - LISP=sbcl
+    - LISP=ccl
+    - LISP=clisp
+    - LISP=ecl
+
+script:
+  - cl -e '(ql:quickload :lbot-test) (prove:run :lbot-test)'

@@ -17,7 +17,8 @@
 
 (let* ((stream (make-string-input-stream "some test string"))
        (res (lbot::read-until stream
-                              #'(lambda (data)
+                              #'(lambda (data stream)
+                                  (declare (ignore stream))
                                   (position #\Space data :test #'char=))
                               :buff-size 1)))
   (is 4 res)
