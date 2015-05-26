@@ -43,8 +43,6 @@
                   "No." (xmpp::type- message)))))
 
 (defun process-personal (connection message)
-  ;; (format xmpp:*debug-stream* "~&personal: ~a" message)
-  ;; (format xmpp:*debug-stream* "~&personal: ~a" (xmpp:body message))
   (optima:match (xmpp:body message)
     ((equal "errors")
      (reply-chat connection (xmpp:from message)
