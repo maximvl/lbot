@@ -151,7 +151,7 @@
        (incf total-readed readed)
        (when (< readed buff-size)
          (setf (fill-pointer buffer) total-readed))
-       (setf result (funcall condition buffer))
+       (setf result (funcall condition buffer stream))
        (when result
          (when result-only
            (return result))
@@ -171,23 +171,26 @@
 
 (defun get-http-page-title (url)
   (multiple-value-bind (stream status headers)
-      (drakma:http-request url :want-stream t :force-binary t)
+      (drakma:http-request url :want-stream t)
     (unwind-protect
          (when (and (= status 200) 
-                    (search "text/html" (cdr (assoc :content-type headers))))
-           (let ((encoding drakma:*drakma-default-external-format*))
-             (read-until stream #'(lambda (data)
-                                    (let ((data2 (flexi-streams:octets-to-string data :external-format encoding)))
-                                      (when (eq encoding drakma:*drakma-default-external-format*)
-                                        (ppcre:register-groups-bind (charset)
-                                            ("(?i)charset=\"?([^\"\\s>]+)" data2)
-                                          (setf encoding (make-keyword charset))
-                                          (setf data2 (flexi-streams:octets-to-string data :external-format encoding))))
-                                      (ppcre:register-groups-bind
-                                          (title)
-                                          ("(?i)<title>([^<]*)</title>" data2 :sharedp t)
-                                        title))) :result-only t)))
-      (close stream))))
+                    (search "text/html" (cdr (assoc :content-type headers))
+                            :test #'equalp))
+           (let (charset-set)
+             (read-until stream
+                         #'(lambda (data stream)
+                             (unless charset-set
+                               (ppcre:register-groups-bind (charset)
+                                   ("(?i)charset=\"?([^\"\\s>]+)" data)
+                                 (setf charset-set t)
+                                 (setf (flexi-streams:flexi-stream-external-format stream)
+                                       (make-keyword (coerce charset 'string)))))
+                             (ppcre:register-groups-bind
+                                 (title)
+                                 ("(?i)<title>([^<]*)</title>" data :sharedp t)
+                               (coerce title 'string)))
+                         :result-only t)))
+    (close stream))))
 
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
@@ -402,9 +405,12 @@
         (let ((condition
                (cond
                  (fun
-                  #'(lambda (data)
+                  #'(lambda (data stream)
+                      (declare (ignore stream))
                       (get-erl-man-function-description data fun arity)))
-                 (t #'get-erl-man-module-discription))))
+                 (t #'(lambda (data stream)
+                        (declare (ignore stream))
+                        (get-erl-man-module-discription data))))))
           (read-until stream condition :result-only t))))))
 
 (defun get-rates (pairs)
