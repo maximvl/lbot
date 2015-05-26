@@ -8,7 +8,7 @@ env:
     - LISP=ecl
 
 install:
-  - curl -L https://github.com/luismbo/cl-travis/raw/master/install.sh | sh
+  - curl -L https://github.com/luismbo/cl-travis/raw/master/install.sh | sudo sh
 
 script:
   - cl -e '(ql:quickload :lbot-test)
