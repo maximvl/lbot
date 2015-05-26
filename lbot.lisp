@@ -79,7 +79,12 @@
                  :highlight (reply-nick (xmpp:from message))))
     ((equal "ideas")
      (reply-chat connection (xmpp:from message)
-                 (get-ideas) (xmpp::type- message)))))
+                 (get-ideas) (xmpp::type- message)))
+    ((or (optima.ppcre:ppcre "^.* 300 .*$")
+         (optima.ppcre:ppcre "^.* тристо .*$")
+         (optima.ppcre:ppcre "^.* триста .*$"))
+     (reply-chat connection (xmpp:from message)
+                 "отсоси у тракториста" (xmpp::type- message)))))
 
 (defun my-subseq (seq start &optional end)
   (if (> end (length seq))
@@ -165,9 +170,9 @@
                      :fill-pointer t))))
 
 (defun convert (string from to)
-  (babel:octets-to-string (babel:string-to-octets string
-                                                  :encoding from)
-                          :encoding to))
+  (babel:octets-to-string 
+   (babel:string-to-octets string :encoding from)
+   :encoding to))
 
 (defun get-http-page-title (url)
   (multiple-value-bind (stream status headers)
@@ -435,7 +440,6 @@
 
 (defun add-idea (from idea)
   (push (list from idea (get-universal-time)) *ideas*))
-
 
 (defun get-ideas ()
   (format nil "ideas: ~{~&~a~}" *ideas*))
