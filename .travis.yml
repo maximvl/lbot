@@ -12,7 +12,8 @@ install:
   - curl -L https://github.com/luismbo/cl-travis/raw/master/install.sh | sh
 
 script:
-  - cl -e '(push \#p"." ql:*local-project-directories*)
+  - cl -e '(push (make-pathname :directory '(:relative "."))
+                 ql:*local-project-directories*)
            (ql:quickload :lbot-test)
            (unless (prove:run :lbot-test)
               (uiop:quit 1))'
