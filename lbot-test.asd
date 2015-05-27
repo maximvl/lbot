@@ -2,7 +2,7 @@
 
 ;; Testing ASDF system
 (asdf:defsystem #:lbot-test
-  :depends-on (#:lbot #:prove)
+  :depends-on (#:prove #:lbot)
   :defsystem-depends-on (:prove-asdf)
   :components
   ((:test-file "lbot-test"))

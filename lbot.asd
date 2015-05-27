@@ -6,6 +6,7 @@
   :author "Your Name <your.name@example.com>"
   :license "Specify license here"
   :depends-on (#:cl-xmpp
+               #:cl-xmpp-sasl
                #:bordeaux-threads
                #:optima
                #:optima.ppcre

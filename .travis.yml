@@ -4,16 +4,15 @@ sudo: required
 env:
   matrix:
     - LISP=sbcl
-    # - LISP=ccl
-    # - LISP=clisp
-    # - LISP=ecl
+    - LISP=ccl
+    - LISP=clisp
+    - LISP=ecl
 
 install:
   - curl -L https://github.com/luismbo/cl-travis/raw/master/install.sh | sh
 
 script:
-  - cl -e '(push (make-pathname :directory (quote (:absolute "home/travis/build/maximvl/lbot")))
-                 ql:*local-project-directories*)
+  - cl -e '(push "." ql:*local-project-directories*)
            (ql:quickload :prove)
            (ql:quickload :lbot-test)
            (unless (prove:run :lbot-test)
