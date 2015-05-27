@@ -1,6 +1,8 @@
 # lbot
 Jabber bot written in Common Lisp.
 
+[![Build Status](https://travis-ci.org/maximvl/lbot.svg?branch=master)](https://travis-ci.org/maximvl/lbot)
+
 # Setup
 ```
 curl -O https://beta.quicklisp.org/quicklisp.lisp
