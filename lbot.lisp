@@ -189,7 +189,7 @@
                          #'(lambda (data stream)
                              (unless charset-set
                                (ppcre:register-groups-bind (charset)
-                                   ("(?i)charset=\"?([^\"\\s>]+)" data)
+                                   ("(?i)charset=\"?([^\"'\\s>]+)" data)
                                  (setf charset-set t)
                                  (setf (flexi-streams:flexi-stream-external-format stream)
                                        (make-keyword (coerce charset 'string)))))
