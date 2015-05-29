@@ -10,9 +10,18 @@
   (string-trim '(#\Space #\Tab #\Newline) string))
 
 (defun git-version ()
-  (let ((s (make-string-output-stream)))
-    (external-program:run "git" '("log" "-1" "--format=%cD (%cr)") :output s)
-    (trim (get-output-stream-string s))))
+  (let ((system (ql:where-is-system "lbot")))
+    (if system
+        (multiple-value-bind (out err status)
+            (asdf/run-program:run-program
+             (format nil "cd ~a && git log -1 --format='%cD (%cr)'" system)
+             :output '(:string :stripped t)
+             :error-output '(:string :stripped t)
+             :ignore-error-status t)
+          (if (zerop status)
+              out
+              err))
+        "lbot system directory not found")))
 
 (defparameter *version* (git-version))
 
@@ -72,7 +81,8 @@
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^rates ([1-9]+) ([^\\s]+) to ([^\\s]+)$" amount from to)
      (reply-chat connection (xmpp:from message)
-                 (format nil "~a ~a = ~a ~a" amount from (convert-money amount from to) to)
+                 (format nil "~a ~a = ~a ~a" amount from
+                         (convert-money (read-from-string amount) from to) to)
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
