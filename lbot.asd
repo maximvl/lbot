@@ -13,6 +13,8 @@
                #:lparallel
                #:drakma
                #:cl-csv
-               #:split-sequence)
+               #:split-sequence
+               #:html-entities
+               #:external-program)
   :components ((:file "package")
                (:file "lbot")))

@@ -6,10 +6,17 @@
 
 (require :cl-xmpp-tls)
 
-(defparameter *connection* nil)
-
 (defun trim (string)
   (string-trim '(#\Space #\Tab #\Newline) string))
+
+(defun git-version ()
+  (let ((s (make-string-output-stream)))
+    (external-program:run "git" '("log" "-1" "--format=%cD (%cr)") :output s)
+    (trim (get-output-stream-string s))))
+
+(defparameter *version* (git-version))
+
+(defparameter *connection* nil)
 
 (defun process-message (connection message)
   (unless (search (concatenate 'string "/" (xmpp:username connection))
@@ -44,6 +51,9 @@
 
 (defun process-personal (connection message)
   (optima:match (xmpp:body message)
+    ((equal "v")
+     (reply-chat connection (xmpp:from message)
+                 *version* (xmpp::type- message)))
     ((equal "errors")
      (reply-chat connection (xmpp:from message)
                  (format-errors) (xmpp::type- message)))
@@ -51,16 +61,18 @@
      (reply-chat connection (xmpp:from message)
                  (format-rates (get-rates '("USDRUB" "EURRUB"))) 
                  (xmpp::type- message)))
-    ((optima.ppcre:ppcre "^rates ([^ ]*)$" pairs)
+    ((optima.ppcre:ppcre "^rates ([^\\s]+)$" pairs)
      (reply-chat connection (xmpp:from message)
                  (format-rates (get-rates (split-sequence:split-sequence
-                                           #\Space
-                                           (string-upcase pairs))))
+                                           #\Space pairs)))
                  (xmpp::type- message)))
-    ((optima.ppcre:ppcre "^rates ([^ ]*) (.*)$" curr1 curr2)
+    ((optima.ppcre:ppcre "^rates ([^\\s]+) ([^\\s]+)$" curr1 curr2)
      (reply-chat connection (xmpp:from message)
-                 (format-rates (get-rates (string-upcase curr1)
-                                          (string-upcase curr2)))
+                 (format-rates (get-rates (list curr1 curr2)))
+                 (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^rates ([1-9]+) ([^\\s]+) to ([^\\s]+)$" amount from to)
+     (reply-chat connection (xmpp:from message)
+                 (format nil "~a ~a = ~a ~a" amount from (convert-money amount from to) to)
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
@@ -83,9 +95,9 @@
     ((equal "ideas")
      (reply-chat connection (xmpp:from message)
                  (get-ideas) (xmpp::type- message)))
-    ((or (optima.ppcre:ppcre "^.* 300 .*$")
-         (optima.ppcre:ppcre "^.* тристо .*$")
-         (optima.ppcre:ppcre "^.* триста .*$"))
+    ((or (optima.ppcre:ppcre "(^|\\s)300($|\\s)")
+         (optima.ppcre:ppcre "(^|\\s)тристо($|\\s)")
+         (optima.ppcre:ppcre "(^|\\s)триста($|\\s)"))
      (reply-chat connection (xmpp:from message)
                  "отсоси у тракториста" (xmpp::type- message)))))
 
@@ -172,7 +184,7 @@
                      (+ (array-total-size buffer) buff-size)
                      :fill-pointer t))))
 
-(defun convert (string from to)
+(defun convert-string (string from to)
   (babel:octets-to-string 
    (babel:string-to-octets string :encoding from)
    :encoding to))
@@ -196,7 +208,7 @@
                              (ppcre:register-groups-bind
                                  (title)
                                  ("(?i)<title>([^<]*)</title>" data :sharedp t)
-                               (coerce title 'string)))
+                               (html-entities:decode-entities (coerce title 'string))))
                          :result-only t)))
     (close stream))))
 
@@ -438,6 +450,11 @@
               (format s "~&1 ~a = ~a ~a (updated: ~a ~a)" 
                       curr1 rate curr2 date time))))))
 
+(defun convert-money (amount from to)
+  (let ((rate (cadadr (get-rates (list from to)))))
+    (let ((rate (read-from-string rate)))
+      (when (numberp rate)
+        (* amount rate)))))
 
 (defparameter *ideas* nil)
 
