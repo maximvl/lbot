@@ -77,7 +77,7 @@
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^rates ([^\\s]+) ([^\\s]+)$" curr1 curr2)
      (reply-chat connection (xmpp:from message)
-                 (format-rates (get-rates (list curr1 curr2)))
+                 (format-rates (get-rates (list (concatenate 'string curr1 curr2))))
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^rates ([1-9]+) ([^\\s]+) to ([^\\s]+)$" amount from to)
      (reply-chat connection (xmpp:from message)
@@ -170,7 +170,7 @@
     (skip-stanza () '(ignored))))
 
 (defun read-until (stream condition &key (buff-size 1024) result-only)
-  (let ((buffer (make-array buff-size :adjustable t :fill-pointer t))
+  (let ((buffer (make-array buff-size :adjustable t :fill-pointer t :element-type 'character))
         (readed 0)
         (total-readed 0)
         (result nil))
@@ -202,25 +202,39 @@
 (defun get-http-page-title (url)
   (multiple-value-bind (stream status headers)
       (drakma:http-request url :want-stream t)
-    (unwind-protect
-         (when (and (= status 200) 
-                    (search "text/html" (cdr (assoc :content-type headers))
-                            :test #'equalp))
-           (let (charset-set)
-             (read-until stream
-                         #'(lambda (data stream)
-                             (unless charset-set
-                               (ppcre:register-groups-bind (charset)
-                                   ("(?i)charset=[\"']?([^\"'\\s>]+)" data)
-                                 (setf charset-set t)
-                                 (setf (flexi-streams:flexi-stream-external-format stream)
-                                       (make-keyword (coerce charset 'string)))))
-                             (ppcre:register-groups-bind
-                                 (title)
-                                 ("(?i)<title>([^<]*)</title>" data :sharedp t)
-                               (html-entities:decode-entities (coerce title 'string))))
-                         :result-only t)))
-    (close stream))))
+    (when (and (= status 200) 
+               (search "text/html" (cdr (assoc :content-type headers))
+                       :test #'equalp))
+      (with-open-stream (s stream)
+        (get-title s)))))
+
+(defun get-title (stream &key (buff-size 1024))
+  (let (charset-set title-set)
+    (read-until stream
+                #'(lambda (data stream)
+                    (declare (ignore stream))
+                    (unless charset-set
+                      (ppcre:register-groups-bind (charset)
+                          ("(?i)charset=[\"']?([^\"'\\s>]+)[\"']" data)
+                        (setf charset-set (make-keyword charset))))
+                    (unless title-set
+                      (ppcre:register-groups-bind
+                          (title)
+                          ("(?i)<title>([^<]*)</title>" data :sharedp t)
+                        (setf title-set (html-entities:decode-entities title))))
+                    (cond
+                      ((and charset-set title-set) t)
+                      ((ppcre:all-matches "(?i)</head>" data) t)
+                      (t nil)))
+                :result-only t
+                :buff-size buff-size)
+    (if charset-set
+        (convert-string title-set
+                        (flexi-streams:external-format-name
+                         (flexi-streams:flexi-stream-external-format
+                          stream))
+                        charset-set)
+        title-set)))
 
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
@@ -461,7 +475,7 @@
                       curr1 rate curr2 date time))))))
 
 (defun convert-money (amount from to)
-  (let ((rate (cadadr (get-rates (list from to)))))
+  (let ((rate (cadar (get-rates (list (concatenate 'string from to))))))
     (let ((rate (read-from-string rate)))
       (when (numberp rate)
         (* amount rate)))))
