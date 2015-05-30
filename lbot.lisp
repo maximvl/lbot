@@ -9,8 +9,12 @@
 (defun trim (string)
   (string-trim '(#\Space #\Tab #\Newline) string))
 
+(defmacro with-system-path ((var system) &body body)
+  `(let ((,var (ql:where-is-system ,system)))
+     ,@body))
+
 (defun git-version ()
-  (let ((system (ql:where-is-system "lbot")))
+  (with-system-path (system "lbot")
     (if system
         (multiple-value-bind (out err status)
             (asdf/run-program:run-program
@@ -18,12 +22,25 @@
              :output '(:string :stripped t)
              :error-output '(:string :stripped t)
              :ignore-error-status t)
-          (if (zerop status)
-              out
-              err))
+          (if (zerop status) out err))
         "lbot system directory not found")))
 
-(defparameter *version* (git-version))
+(defun reload ()
+  (with-system-path (system "lbot")
+    (when system
+      (multiple-value-bind (out err status)
+          (asdf/run-program:run-program
+           (format nil "cd ~a && git pull" system)
+           :output '(:string :stripped t)
+           :error-output '(:string :stripped t)
+           :ignore-error-status t)
+        (if (zerop status) 
+            (handler-case 
+                (progn
+                  (ql:quickload "lbot")
+                  (values t out))
+              (t (e) (values nil e)))
+            (values nil err))))))
 
 (defparameter *connection* nil)
 
@@ -62,7 +79,7 @@
   (optima:match (xmpp:body message)
     ((equal "v")
      (reply-chat connection (xmpp:from message)
-                 *version* (xmpp::type- message)))
+                 (git-version) (xmpp::type- message)))
     ((equal "errors")
      (reply-chat connection (xmpp:from message)
                  (format-errors) (xmpp::type- message)))
@@ -104,7 +121,12 @@
                  :highlight (reply-nick (xmpp:from message))))
     ((equal "ideas")
      (reply-chat connection (xmpp:from message)
-                 (get-ideas) (xmpp::type- message)))
+                 (format-ideas *ideas*) (xmpp::type- message)))
+    ((equal "reload")
+     (multiple-value-bind (success text) (reload)
+         (let ((text (if success "done" text)))
+           (reply-chat connection (xmpp:from message)
+                       text (xmpp::type- message)))))
     ((or (optima.ppcre:ppcre "(^|\\s)300($|\\s)")
          (optima.ppcre:ppcre "(^|\\s)тристо($|\\s)")
          (optima.ppcre:ppcre "(^|\\s)триста($|\\s)"))
@@ -156,12 +178,32 @@
     (format stream "error ~A at ~A" (object object)
             (format-time (catched-at object)))))
 
-(defun format-time (time)
+(defclass idea ()
+  ((user
+    :accessor idea-user
+    :initarg :user)
+   (created-at
+    :accessor idea-created-at
+    :initarg :created-at
+    :initform (get-universal-time))
+   (text
+    :accessor idea-text
+    :initarg :text)))
+
+(defmethod print-object ((object idea) stream)
+  (print-unreadable-object (object stream :type nil :identity nil)
+    (format stream "idea: ~A from ~A at ~A"
+            (idea-text object)
+            (idea-user object)
+            (format-time (idea-created-at object)))))
+
+(defun format-time (&optional (time (get-universal-time)))
   (multiple-value-bind
         (second minute hour date month year day-of-week dst-p tz)
       (decode-universal-time time)
     (declare (ignore second day-of-week dst-p tz))
-    (format nil "~a-~a-~a ~a:~a" date month year hour minute)))
+    (format nil "~2,'0d-~2,'0d-~d ~2,'0d:~2,'0d" 
+            date month year hour minute)))
 
 (defun callback-with-restart (&rest args)
   (restart-case
@@ -483,9 +525,12 @@
 (defparameter *ideas* nil)
 
 (defun add-idea (from idea)
-  (push (list from idea (get-universal-time)) *ideas*))
+  (push (make-instance 'idea 
+                       :user from
+                       :text idea)
+        *ideas*))
 
-(defun get-ideas ()
+(defun format-ideas (ideas)
   (format nil "ideas: ~{~&~a~}" *ideas*))
 
 (defun make-keyword (string)
