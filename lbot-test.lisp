@@ -1,9 +1,14 @@
 (in-package :cl-user)
 
 (defpackage lbot-test
-  (:use :cl :prove :lbot))
+  (:use :cl :prove :lbot)
+  (:shadow :run)
+  (:export :run))
 
 (in-package :lbot-test)
+
+(defun run ()
+  (prove:run :lbot-test))
 
 (setf *default-reporter* :list)
 
