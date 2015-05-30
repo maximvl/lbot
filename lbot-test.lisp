@@ -7,7 +7,7 @@
 
 (setf *default-reporter* :list)
 
-(plan 9)
+(plan 10)
 
 (diag "testing utils")
 
@@ -16,6 +16,8 @@
 (is "test" (lbot::starts-with-nick "nick" "nick test"))
 (is "test" (lbot::starts-with-nick "nick" "nick: test"))
 (is nil (lbot::starts-with-nick "nick" "nic test"))
+
+(is :keyword (lbot::make-keyword "keyword"))
 
 (diag "~&testing read-until")
 
@@ -38,14 +40,17 @@
        (with-open-stream (,var ,stream)
          ,@body))))
 
-(with-input-from-encoded-string (s "charset='utf-8' <title>тайтл-ютф</title>" :utf-8)
+(with-input-from-encoded-string
+    (s "charset='utf-8' <title>тайтл-ютф</title>" :utf-8)
   (is "тайтл-ютф" (lbot::get-title s)))
 
-(with-input-from-encoded-string (s "charset=\"windows-1251\" <title>тайтл-1251</title>"
+(with-input-from-encoded-string
+    (s "charset=\"windows-1251\" <title>тайтл-1251</title>"
                                    :windows-1251)
   (is "тайтл-1251" (lbot::get-title s)))
 
-(with-input-from-encoded-string (s "<title>тайтл-1251-2</title> charset='windows-1251'"
+(with-input-from-encoded-string
+    (s "<title>тайтл-1251-2</title> charset='windows-1251'"
                                    :windows-1251)
   (is "тайтл-1251-2" (lbot::get-title s :buff-size 10)))
 
