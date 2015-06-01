@@ -522,7 +522,7 @@
       (when (numberp rate)
         (* amount rate)))))
 
-(defparameter *ideas* nil)
+(defvar *ideas* nil)
 
 (defun add-idea (from idea)
   (push (make-instance 'idea 
