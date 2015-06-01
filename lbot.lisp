@@ -134,7 +134,7 @@
                  "отсоси у тракториста" (xmpp::type- message)))))
 
 (defun my-subseq (seq start &optional end)
-  (if (> end (length seq))
+  (if (and end (> end (length seq)))
       (subseq seq start)
       (subseq seq start end)))
 

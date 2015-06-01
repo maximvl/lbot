@@ -12,7 +12,7 @@
 
 (setf *default-reporter* :list)
 
-(plan 10)
+(plan 14)
 
 (diag "testing utils")
 
@@ -23,6 +23,11 @@
 (is nil (lbot::starts-with-nick "nick" "nic test"))
 
 (is :keyword (lbot::make-keyword "keyword"))
+
+(is '(1 2 3) (lbot::my-subseq '(1 2 3 4 5) 0 3))
+(is '(4 5) (lbot::my-subseq '(1 2 3 4 5) 3 5))
+(is '(4 5) (lbot::my-subseq '(1 2 3 4 5) 3 10))
+(is '(4 5) (lbot::my-subseq '(1 2 3 4 5) 3))
 
 (diag "~&testing read-until")
 
