@@ -7,6 +7,7 @@
 (require :cl-xmpp-tls)
 
 (defun trim (string &key inside)
+  (check-type string string)
   (string-trim '(#\Space #\Tab #\Newline)
                (if inside
                    (ppcre:regex-replace-all "\\s+" string " ")
@@ -26,7 +27,7 @@
              :error-output '(:string :stripped t)
              :ignore-error-status t)
           (if (zerop status) out err))
-        "lbot system directory not found")))
+        "lbot system path not found")))
 
 (defun reload ()
   (with-system-path (system "lbot")
@@ -37,12 +38,10 @@
            :output '(:string :stripped t)
            :error-output '(:string :stripped t)
            :ignore-error-status t)
-        (if (zerop status) 
-            (handler-case 
-                (progn
-                  (ql:quickload "lbot")
-                  (values t out))
-              (t (e) (values nil e)))
+        (if (zerop status)
+            (ignore-errors
+              (ql:quickload "lbot")
+              (values t out))
             (values nil err))))))
 
 (defparameter *connection* nil)
@@ -63,6 +62,8 @@
            (process-groupchat-message connection message)))))))
 
 (defun starts-with-nick (nick msg)
+  (check-type nick string)
+  (check-type msg string)
   (multiple-value-bind (starts rest)
       (alexandria:starts-with-subseq nick (trim msg)
                                      :return-suffix t)
@@ -88,7 +89,7 @@
                  (format-errors) (xmpp::type- message)))
     ((equal "rates")
      (reply-chat connection (xmpp:from message)
-                 (format-rates (get-rates '("USDRUB" "EURRUB"))) 
+                 (format-rates (get-rates '("USDRUB" "EURRUB")))
                  (xmpp::type- message)))
     ((optima.ppcre:ppcre "^rates ([^\\s]+)$" pairs)
      (reply-chat connection (xmpp:from message)
@@ -120,16 +121,25 @@
     ((optima.ppcre:ppcre "^idea (.+)$" idea)
      (add-idea (reply-nick (xmpp:from message)) idea)
      (reply-chat connection (xmpp:from message)
-                 "got it" (xmpp::type- message) 
+                 "got it" (xmpp::type- message)
                  :highlight (reply-nick (xmpp:from message))))
     ((equal "ideas")
      (reply-chat connection (xmpp:from message)
                  (format-ideas *ideas*) (xmpp::type- message)))
     ((equal "reload")
-     (multiple-value-bind (success text) (reload)
-         (let ((text (if success "done" text)))
-           (reply-chat connection (xmpp:from message)
-                       text (xmpp::type- message)))))
+     (let* ((repo (get-github-repo))
+            (status (if repo (travis-status repo)))
+            (text (if (eq status :passing)
+                      (multiple-value-bind (success text) (reload)
+                        (if success (git-version) text))
+                      (format nil "ci status: ~a (https://travis-ci.org/~a)" status repo))))
+       (reply-chat connection (xmpp:from message)
+                   text (xmpp::type- message))))
+    ((equal "ci")
+     (let* ((repo (get-github-repo))
+            (status (if repo (travis-status repo))))
+       (reply-chat connection (xmpp:from message)
+                   (format nil "~a" status) (xmpp::type- message))))
     ((or (optima.ppcre:ppcre "(^|\\s)300($|\\s)")
          (optima.ppcre:ppcre "(^|\\s)тристо($|\\s)")
          (optima.ppcre:ppcre "(^|\\s)триста($|\\s)"))
@@ -137,6 +147,9 @@
                  "отсоси у тракториста" (xmpp::type- message)))))
 
 (defun my-subseq (seq start &optional end)
+  (check-type seq sequence)
+  (check-type start fixnum)
+  (check-type end (or fixnum null))
   (if (and end (> end (length seq)))
       (subseq seq start)
       (subseq seq start end)))
@@ -201,11 +214,12 @@
             (format-time (idea-created-at object)))))
 
 (defun format-time (&optional (time (get-universal-time)))
+  (check-type time integer)
   (multiple-value-bind
         (second minute hour date month year day-of-week dst-p tz)
       (decode-universal-time time)
     (declare (ignore second day-of-week dst-p tz))
-    (format nil "~2,'0d-~2,'0d-~d ~2,'0d:~2,'0d" 
+    (format nil "~2,'0d-~2,'0d-~d ~2,'0d:~2,'0d"
             date month year hour minute)))
 
 (defun callback-with-restart (&rest args)
@@ -215,6 +229,8 @@
     (skip-stanza () '(ignored))))
 
 (defun read-until (stream condition &key (buff-size 1024) result-only)
+  (check-type buff-size integer)
+  (check-type condition function)
   (let ((buffer (make-array buff-size :adjustable t :fill-pointer t :element-type 'character))
         (readed 0)
         (total-readed 0)
@@ -240,14 +256,18 @@
                      :fill-pointer t))))
 
 (defun convert-string (string from to)
-  (babel:octets-to-string 
+  (check-type string string)
+  (check-type from keyword)
+  (check-type to keyword)
+  (babel:octets-to-string
    (babel:string-to-octets string :encoding from)
    :encoding to))
 
 (defun get-http-page-title (url)
+  (check-type url string)
   (multiple-value-bind (stream status headers)
       (drakma:http-request url :want-stream t)
-    (when (and (= status 200) 
+    (when (and (= status 200)
                (search "text/html" (cdr (assoc :content-type headers))
                        :test #'equalp))
       (with-open-stream (s stream)
@@ -256,6 +276,7 @@
             (trim title :inside t)))))))
 
 (defun get-title (stream &key (buff-size 1024))
+  (check-type buff-size integer)
   (let (charset-set title-set)
     (read-until stream
                 #'(lambda (data stream)
@@ -292,10 +313,13 @@
                      title (xmpp::type- message)))))))
 
 (defun reply-nick (from)
+  (check-type from string)
   (let ((pos (position #\/ from)))
     (when pos (subseq from (1+ pos)))))
 
 (defun reply-chat (connection to reply kind &key highlight)
+  (check-type reply (or string null))
+  (check-type highlight (or string null))
   (if (string-equal kind "groupchat")
     (let* ((pos (position #\/ to))
            (to (if pos (subseq to 0 pos) to))
@@ -358,6 +382,7 @@
               (cxml:attribute "maxstanzas" max-stanzas))))))))
 
 (defun make-thread-name (login)
+  (check-type login string)
   (format nil "~a-xmpp-loop" login))
 
 (defun make-mailboxed-thread (&rest args)
@@ -372,6 +397,9 @@
                                   :name (make-thread-name login))))
 
 (defun connect (login pass &key room (nick login))
+  (check-type login string)
+  (check-type pass string)
+  (check-type room string)
   (let ((*room* room))
     (declare (special *room*))
     (setf *connection* (xmpp:connect-tls :hostname "jabber.ru"))
@@ -441,9 +469,13 @@
 ;;   (find-in-man man (erl-fun-regex fun arity) :max-chars 300))
 
 (defun erl-man-link (module &optional fun arity)
+  (check-type module string)
+  (check-type fun (or string null))
+  (check-type arity (or string null))
   (string-downcase
    (cond
-     ((and fun arity) (format nil "http://www.erlang.org/doc/man/~a.html#~a-~a" module fun arity))
+     ((and fun arity) (format nil "http://www.erlang.org/doc/man/~a.html#~a-~a"
+                              module fun arity))
      (fun (format nil "http://www.erlang.org/doc/man/~a.html#~a" module fun))
      (t (format nil "http://www.erlang.org/doc/man/~a.html" module)))))
 
@@ -481,11 +513,15 @@
           (format nil "~a~%~a" (sanitize-string sig) (sanitize-string result)))))))
 
 (defun sanitize-string (str)
+  (check-type str string)
   (trim (html-entities:decode-entities
          (ppcre:regex-replace-all "<[^>]+>" str ""))
         :inside t))
 
 (defun get-erl-man-info (module &optional fun arity)
+  (check-type module string)
+  (check-type fun (or string null))
+  (check-type arity (or string null))
   (let ((link (erl-man-link module fun arity)))
     (multiple-value-bind (stream status)
         (drakma:http-request link :want-stream t)
@@ -505,7 +541,7 @@
   (let ((api-url (format nil "http://finance.yahoo.com/d/quotes.csv?e=.csv&f=sl1d1t1&s=~{~a=X~^+~}" pairs)))
     (multiple-value-bind (data status) (drakma:http-request api-url)
       (when (= 200 status)
-      (let ((data (flexi-streams:octets-to-string 
+      (let ((data (flexi-streams:octets-to-string
                    data :external-format :utf8)))
         (cl-csv:read-csv data))))))
 
@@ -515,10 +551,13 @@
        do (destructuring-bind (name rate date time) r
             (let ((curr1 (subseq name 0 3))
                   (curr2 (subseq name 3 6)))
-              (format s "~&1 ~a = ~a ~a (updated: ~a ~a)" 
+              (format s "~&1 ~a = ~a ~a (updated: ~a ~a)"
                       curr1 rate curr2 date time))))))
 
 (defun convert-money (amount from to)
+  (check-type amount number)
+  (check-type from string)
+  (check-type to string)
   (let ((rate (cadar (get-rates (list (concatenate 'string from to))))))
     (let ((rate (read-from-string rate)))
       (when (numberp rate)
@@ -527,7 +566,7 @@
 (defvar *ideas* nil)
 
 (defun add-idea (from idea)
-  (push (make-instance 'idea 
+  (push (make-instance 'idea
                        :user from
                        :text idea)
         *ideas*))
@@ -536,4 +575,41 @@
   (format nil "ideas: ~{~&~a~}" *ideas*))
 
 (defun make-keyword (string)
+  (check-type string string)
   (intern (string-upcase string) :keyword))
+
+(defun travis-status (repo &key (branch "master"))
+  (check-type repo string)
+  (check-type branch string)
+  (multiple-value-bind (res code)
+      (ignore-errors
+        (drakma:http-request
+         (format nil "https://api.travis-ci.org/~a.svg?branch=~a" repo branch)))
+    (when (and code (= code 200) res)
+      (let* ((res (plump:parse (babel:octets-to-string res)))
+             (last-child (alexandria:last-elt (plump:children (aref (plump:children res) 0))))
+             (last-text (plump:text (aref (plump:children
+                                           (alexandria:last-elt (plump:children last-child)))
+                                          0))))
+        (cond
+          ((string-equal "passing" last-text) :passing)
+          ((string-equal "failing" last-text) :failing)
+          (t :unknown))))))
+
+(defun get-github-repo (&optional (system (string-downcase (package-name *package*))))
+  (check-type system (or string keyword))
+  (with-system-path (path system)
+    (if path
+        (multiple-value-bind (out err status)
+            (asdf/run-program:run-program "git config --get remote.origin.url"
+                                          :output '(:string :stripped t)
+                                          :error-output '(:string :stripped t)
+                                          :ignore-error-status t)
+          (if (zerop status)
+              (let ((repo (ppcre:register-groups-bind (match) (":(.+).git$" out :sharedp t)
+                            match)))
+                (if repo
+                    (values repo nil)
+                    (values nil (format nil "repo not found in ~a" out))))
+              (values nil err)))
+        (values nil (format nil "~a system path not found" system)))))
