@@ -14,6 +14,7 @@
                #:drakma
                #:cl-csv
                #:split-sequence
-               #:html-entities)
+               #:html-entities
+               #:plump)
   :components ((:file "package")
                (:file "lbot")))
