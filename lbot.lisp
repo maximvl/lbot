@@ -6,8 +6,11 @@
 
 (require :cl-xmpp-tls)
 
-(defun trim (string)
-  (string-trim '(#\Space #\Tab #\Newline) string))
+(defun trim (string &key inside)
+  (string-trim '(#\Space #\Tab #\Newline)
+               (if inside
+                   (ppcre:regex-replace-all "\\s+" string " ")
+                   string)))
 
 (defmacro with-system-path ((var system) &body body)
   `(let ((,var (ql:where-is-system ,system)))
@@ -248,7 +251,9 @@
                (search "text/html" (cdr (assoc :content-type headers))
                        :test #'equalp))
       (with-open-stream (s stream)
-        (get-title s)))))
+        (let ((title (get-title s)))
+          (when title
+            (trim title :inside t)))))))
 
 (defun get-title (stream &key (buff-size 1024))
   (let (charset-set title-set)
@@ -476,12 +481,9 @@
           (format nil "~a~%~a" (sanitize-string sig) (sanitize-string result)))))))
 
 (defun sanitize-string (str)
-  (trim (ppcre:regex-replace-all
-         "&gt;"
-         (ppcre:regex-replace-all
-          "\\s+"
-          (ppcre:regex-replace-all "<[^>]*>" str "") " ")
-         ">")))
+  (trim (html-entities:decode-entities
+         (ppcre:regex-replace-all "<[^>]+>" str ""))
+        :inside t))
 
 (defun get-erl-man-info (module &optional fun arity)
   (let ((link (erl-man-link module fun arity)))
