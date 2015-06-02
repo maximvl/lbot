@@ -257,8 +257,6 @@
 
 (defun convert-string (string from to)
   (check-type string string)
-  (check-type from keyword)
-  (check-type to keyword)
   (babel:octets-to-string
    (babel:string-to-octets string :encoding from)
    :encoding to))
@@ -297,12 +295,19 @@
                 :result-only t
                 :buff-size buff-size)
     (if charset-set
-        (convert-string title-set
-                        (flexi-streams:external-format-name
-                         (flexi-streams:flexi-stream-external-format
-                          stream))
-                        charset-set)
+        (let ((format (flexi-format-to-keyword
+                       (flexi-streams:flexi-stream-external-format stream))))
+          (if (eq format charset-set)
+              title-set
+              (convert-string title-set format (babel:make-external-format charset-set))))
         title-set)))
+
+(defun flexi-format-to-keyword (format)
+  (let* ((name (flexi-streams:external-format-name format))
+         (page (if (eq name :code-page) (flexi-streams:external-format-id format) nil)))
+    (if page
+        (car (rassoc (list :code-page :id page) flexi-streams::+shortcut-map+ :test #'equal))
+        name)))
 
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
