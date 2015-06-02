@@ -100,7 +100,7 @@
      (reply-chat connection (xmpp:from message)
                  (format-rates (get-rates (list (concatenate 'string curr1 curr2))))
                  (xmpp::type- message)))
-    ((optima.ppcre:ppcre "^rates ([1-9]+) ([^\\s]+) to ([^\\s]+)$" amount from to)
+    ((optima.ppcre:ppcre "^rates ([0-9]+) ([^\\s]+) to ([^\\s]+)$" amount from to)
      (reply-chat connection (xmpp:from message)
                  (format nil "~a ~a = ~a ~a" amount from
                          (convert-money (read-from-string amount) from to) to)
