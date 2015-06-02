@@ -1,0 +1,13 @@
+#!/bin/sh
+
+RPM_URL="http://dl.fedoraproject.org/pub/epel/7/x86_64/s/sbcl-1.2.8-1.el7.x86_64.rpm"
+
+RPM=`basename "${RPM_URL}"`
+
+# Make sure we have our lisp environment installed.
+cd $OPENSHIFT_DATA_DIR
+if ! test -f usr/bin/sbcl; then
+    # It's not here.  Let's download and unpack it.
+    curl -0 ${RPM_URL} > ${RPM}
+    rpm2cpio ${RPM} | cpio -idmv
+fi
