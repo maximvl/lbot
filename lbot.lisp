@@ -15,34 +15,29 @@
 
 (defmacro with-system-path ((var system) &body body)
   `(let ((,var (ql:where-is-system ,system)))
-     ,@body))
+     (if ,var
+         (progn ,@body)
+         (error (format nil "path for system \"~a\" not found" ,system)))))
+
+(defun run-program (cmd)
+  (multiple-value-bind (out err status)
+      (asdf/run-program:run-program
+       cmd
+       :output '(:string :stripped t)
+       :error-output '(:string :stripped t)
+       :ignore-error-status t)
+    (if (zerop status)
+        out
+        (error (format nil "command ~s exited with status ~a: ~s" cmd status err)))))
 
 (defun git-version ()
-  (with-system-path (system "lbot")
-    (if system
-        (multiple-value-bind (out err status)
-            (asdf/run-program:run-program
-             (format nil "cd ~a && git log -1 --format='%cD (%cr)'" system)
-             :output '(:string :stripped t)
-             :error-output '(:string :stripped t)
-             :ignore-error-status t)
-          (if (zerop status) out err))
-        "lbot system path not found")))
+  (with-system-path (path "lbot")
+    (run-program (format nil "cd ~a && git log -1 --format='%cD (%cr)'" path))))
 
 (defun reload ()
-  (with-system-path (system "lbot")
-    (when system
-      (multiple-value-bind (out err status)
-          (asdf/run-program:run-program
-           (format nil "cd ~a && git pull" system)
-           :output '(:string :stripped t)
-           :error-output '(:string :stripped t)
-           :ignore-error-status t)
-        (if (zerop status)
-            (ignore-errors
-              (ql:quickload "lbot")
-              (values t out))
-            (values nil err))))))
+  (with-system-path (path "lbot")
+    (run-program (format nil "cd ~a && git pull" path))
+    (ql:quickload "lbot")))
 
 (defparameter *connection* nil)
 
@@ -83,7 +78,7 @@
   (optima:match (xmpp:body message)
     ((equal "v")
      (reply-chat connection (xmpp:from message)
-                 (git-version) (xmpp::type- message)))
+                 (handler-case (git-version) (t (e) e)) (xmpp::type- message)))
     ((equal "errors")
      (reply-chat connection (xmpp:from message)
                  (format-errors) (xmpp::type- message)))
@@ -127,19 +122,23 @@
      (reply-chat connection (xmpp:from message)
                  (format-ideas *ideas*) (xmpp::type- message)))
     ((equal "reload")
-     (let* ((repo (get-github-repo))
-            (status (if repo (travis-status repo)))
-            (text (if (eq status :passing)
-                      (multiple-value-bind (success text) (reload)
-                        (if success (git-version) text))
-                      (format nil "ci status: ~a (https://travis-ci.org/~a)" status repo))))
+     (let ((reply 
+            (handler-case
+                (let* ((repo (get-github-repo))
+                       (status (travis-status repo)))
+                  (if (eq status :passing)
+                      (progn (reload)
+                             (git-version))
+                      (format nil "ci status: ~a (https://travis-ci.org/~a)"
+                              status repo)))
+              (t (e) e))))
        (reply-chat connection (xmpp:from message)
-                   text (xmpp::type- message))))
+                   reply (xmpp::type- message))))
     ((equal "ci")
-     (let* ((repo (get-github-repo))
-            (status (if repo (travis-status repo))))
+     (let ((reply (handler-case (format nil "~a" (travis-status (get-github-repo)))
+                    (t (e) e))))
        (reply-chat connection (xmpp:from message)
-                   (format nil "~a" status) (xmpp::type- message))))
+                   reply (xmpp::type- message))))
     ((or (optima.ppcre:ppcre "(^|\\s)300($|\\s)")
          (optima.ppcre:ppcre "(^|\\s)тристо($|\\s)")
          (optima.ppcre:ppcre "(^|\\s)триста($|\\s)"))
@@ -604,17 +603,7 @@
 (defun get-github-repo (&optional (system (string-downcase (package-name *package*))))
   (check-type system (or string keyword))
   (with-system-path (path system)
-    (if path
-        (multiple-value-bind (out err status)
-            (asdf/run-program:run-program "git config --get remote.origin.url"
-                                          :output '(:string :stripped t)
-                                          :error-output '(:string :stripped t)
-                                          :ignore-error-status t)
-          (if (zerop status)
-              (let ((repo (ppcre:register-groups-bind (match) (":(.+).git$" out :sharedp t)
-                            match)))
-                (if repo
-                    (values repo nil)
-                    (values nil (format nil "repo not found in ~a" out))))
-              (values nil err)))
-        (values nil (format nil "~a system path not found" system)))))
+    (let* ((out (run-program (format nil "cd ~a && git config --get remote.origin.url" path)))
+           (repo (ppcre:register-groups-bind (match) (":(.+).git$" out :sharedp t)
+                   match)))
+      (if repo repo (error (format nil "repo not found in ~a" out))))))
