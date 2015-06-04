@@ -588,25 +588,26 @@
 (defun travis-status (repo &key (branch "master"))
   (check-type repo string)
   (check-type branch string)
-  (multiple-value-bind (res code)
-      (ignore-errors
-        (drakma:http-request
-         (format nil "https://api.travis-ci.org/~a.svg?branch=~a" repo branch)))
-    (when (and code (= code 200) res)
-      (let* ((res (plump:parse (babel:octets-to-string res)))
-             (last-child (alexandria:last-elt (plump:children (aref (plump:children res) 0))))
-             (last-text (plump:text (aref (plump:children
-                                           (alexandria:last-elt (plump:children last-child)))
-                                          0))))
-        (cond
-          ((string-equal "passing" last-text) :passing)
-          ((string-equal "failing" last-text) :failing)
-          (t :unknown))))))
+  (let ((url (format nil "https://api.travis-ci.org/~a.svg?branch=~a" repo branch)))
+    (multiple-value-bind (res code) (drakma:http-request url)
+      (if (= code 200)
+          (let* ((res (plump:parse (babel:octets-to-string res)))
+                 (last-child (alexandria:last-elt
+                              (plump:children (aref (plump:children res) 0))))
+                 (last-text (plump:text
+                             (aref (plump:children (alexandria:last-elt
+                                                    (plump:children last-child)))
+                                   0))))
+            (cond
+              ((string-equal "passing" last-text) :passing)
+              ((string-equal "failing" last-text) :failing)
+              (t :unknown)))
+          (error (format nil "http request to ~s returned ~a" url code))))))
 
 (defun get-github-repo (&optional (system (string-downcase (package-name #.*package*))))
   (check-type system (or string keyword))
   (with-system-path (path system)
     (let* ((out (run-program (format nil "cd ~a && git config --get remote.origin.url" path)))
-           (repo (ppcre:register-groups-bind (match) (":(.+).git$" out :sharedp t)
+           (repo (ppcre:register-groups-bind (match) ("^.*[:/]{1}(.+/.+).git$" out :sharedp t)
                    match)))
       (if repo repo (error (format nil "repo not found in ~a" out))))))
