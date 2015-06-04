@@ -136,6 +136,13 @@
               (t (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
                    reply (xmpp::type- message))))
+    ((equal "reload!")
+     (let ((reply (handler-case (progn
+                                  (reload)
+                                  (git-version))
+                    (t (e) (format nil "~a" e)))))
+       (reply-chat connection (xmpp:from message)
+                   reply (xmpp::type- message))))
     ((equal "ci")
      (let ((reply (handler-case (format nil "~a" (travis-status (get-github-repo)))
                     (t (e) (format nil "~a" e)))))
