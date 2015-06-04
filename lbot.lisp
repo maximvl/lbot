@@ -79,7 +79,7 @@
     ((equal "v")
      (reply-chat connection (xmpp:from message)
                  (handler-case (git-version)
-                   (t (e) (format nil "~a" e)))
+                   (error (e) (format nil "~a" e)))
                  (xmpp::type- message)))
     ((equal "errors")
      (reply-chat connection (xmpp:from message)
@@ -105,8 +105,8 @@
     ((optima.ppcre:ppcre "^say$")
      (reply-chat connection (xmpp:from message)
                  (handler-case (fortune :short t)
-                   (t (e) (format nil "~a" e)))
-                 (xmpp::type- message)))
+                   (error (e) (format nil "~a" e)))
+                (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
                  text (xmpp::type- message)
@@ -129,7 +129,7 @@
      (reply-chat connection (xmpp:from message)
                  (format-ideas *ideas*) (xmpp::type- message)))
     ((equal "reload")
-     (let ((reply 
+     (let ((reply
             (handler-case
                 (let* ((repo (get-github-repo))
                        (status (travis-status repo)))
@@ -138,19 +138,19 @@
                              (git-version))
                       (format nil "ci status: ~a (https://travis-ci.org/~a)"
                               status repo)))
-              (t (e) (format nil "~a" e)))))
+              (error (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
                    reply (xmpp::type- message))))
     ((equal "reload!")
      (let ((reply (handler-case (progn
                                   (reload)
                                   (git-version))
-                    (t (e) (format nil "~a" e)))))
+                    (error (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
                    reply (xmpp::type- message))))
     ((equal "ci")
      (let ((reply (handler-case (format nil "~a" (travis-status (get-github-repo)))
-                    (t (e) (format nil "~a" e)))))
+                    (error (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
                    reply (xmpp::type- message))))))
 
@@ -233,7 +233,7 @@
 (defun callback-with-restart (&rest args)
   (restart-case
       (handler-case (apply #'xmpp::default-stanza-callback args)
-        (t (err) (push (make-user-error err) *errors*)))
+        (error (err) (push (make-user-error err) *errors*)))
     (skip-stanza () '(ignored))))
 
 (defun read-until (stream condition &key (buff-size 1024) result-only)
