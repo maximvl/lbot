@@ -15,6 +15,7 @@
                #:cl-csv
                #:split-sequence
                #:html-entities
-               #:plump)
+               #:plump
+               #:clon)
   :components ((:file "package")
                (:file "lbot")))

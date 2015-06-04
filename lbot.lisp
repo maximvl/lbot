@@ -102,6 +102,11 @@
                  (format nil "~a ~a = ~a ~a" amount from
                          (convert-money (read-from-string amount) from to) to)
                  (xmpp::type- message)))
+    ((optima.ppcre:ppcre "^say$")
+     (reply-chat connection (xmpp:from message)
+                 (handler-case (fortune :short t)
+                   (t (e) (format nil "~a" e)))
+                 (xmpp::type- message)))
     ((optima.ppcre:ppcre "^say (.*)$" text)
      (reply-chat connection (xmpp:from message)
                  text (xmpp::type- message)
@@ -437,6 +442,9 @@
 (defun send (to msg)
   (xmpp:message *connection* to msg))
 
+(defun send-groupchat (to msg)
+  (reply-chat *connection* to msg "groupchat"))
+
 (defun get-stanza ()
   (xmpp:receive-stanza *connection*))
 
@@ -618,3 +626,17 @@
            (repo (ppcre:register-groups-bind (match) ("^.*[:/]{1}(.+/.+).git$" out :sharedp t)
                    match)))
       (if repo repo (error (format nil "repo not found in ~a" out))))))
+
+(defun maybe-say (chat text-getter &key (idle-time (* 60 10)))
+  (when (> (get-universal-time) (+ *last-message-time* idle-time))
+    (send-groupchat chat (funcall text-getter))))
+
+(defun fortune (&key short long file)
+  (let (args)
+    (when file
+      (push file args))
+    (when short
+      (push "-s" args))
+    (when long
+      (push "-l" args))
+    (run-program (format nil "fortune ~{~a ~}" args))))
