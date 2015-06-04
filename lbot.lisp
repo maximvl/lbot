@@ -138,12 +138,7 @@
      (let ((reply (handler-case (format nil "~a" (travis-status (get-github-repo)))
                     (t (e) e))))
        (reply-chat connection (xmpp:from message)
-                   reply (xmpp::type- message))))
-    ((or (optima.ppcre:ppcre "(^|\\s)300($|\\s)")
-         (optima.ppcre:ppcre "(^|\\s)тристо($|\\s)")
-         (optima.ppcre:ppcre "(^|\\s)триста($|\\s)"))
-     (reply-chat connection (xmpp:from message)
-                 "отсоси у тракториста" (xmpp::type- message)))))
+                   reply (xmpp::type- message))))))
 
 (defun my-subseq (seq start &optional end)
   (check-type seq sequence)
@@ -314,7 +309,13 @@
      (let ((title (get-http-page-title url)))
        (when title
          (reply-chat connection (xmpp:from message)
-                     title (xmpp::type- message)))))))
+                     title (xmpp::type- message)))))
+    ((or (optima.ppcre:ppcre "(^|\\s)300($|\\s)")
+         (optima.ppcre:ppcre "(^|\\s)тристо($|\\s)")
+         (optima.ppcre:ppcre "(^|\\s)триста($|\\s)"))
+     (reply-chat connection (xmpp:from message)
+                 "отсоси у тракториста" (xmpp::type- message)
+                 :highlight (reply-nick (xmpp:from message))))))
 
 (defun reply-nick (from)
   (check-type from string)
