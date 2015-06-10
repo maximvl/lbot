@@ -18,4 +18,5 @@
                #:plump
                #:clon)
   :components ((:file "package")
-               (:file "lbot")))
+               (:file "lbot")
+               (:file "utils")))
