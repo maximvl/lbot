@@ -123,7 +123,10 @@
      (let ((reply (handler-case (format nil "~a" (travis-status (get-github-repo)))
                     (error (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
-                   reply (xmpp::type- message))))))
+                   reply (xmpp::type- message))))
+    ((optima.ppcre:ppcre "^tr (.+)$" text)
+     (reply-chat connection (xmpp:from message)
+                 (yandex-translate text) (xmpp::type- message)))))
 
 (defun format-errors ()
   (with-output-to-string (s)
