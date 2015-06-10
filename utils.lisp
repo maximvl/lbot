@@ -308,7 +308,8 @@
        :method :post :parameters `(("key" . ,*yandex-api-key*)
                                    ("lang" . ,lang)
                                    ("text" . ,text)))
-    (when (= 200 status)
-      (let ((data (cl-json:decode-json-from-string
-                   (babel:octets-to-string data))))
-        (cadr (assoc :text data))))))
+    (if (= 200 status)
+        (let ((data (cl-json:decode-json-from-string
+                     (babel:octets-to-string data))))
+          (cadr (assoc :text data)))
+        (error (format nil "yandex api returned ~a" status)))))

@@ -8,6 +8,16 @@
 
 
 (defparameter *connection* nil)
+(defparameter *yandex-api-key* nil)
+(defparameter *jabber-login* nil)
+(defparameter *jabber-password* nil)
+(defparameter *jabber-server* nil)
+(defparameter *jabber-room* nil)
+
+(defun load-config (&optional (file "config.lisp"))
+  (load file :verbose t :print t))
+
+(load-config)
 
 (defun process-message (connection message)
   (unless (search (concatenate 'string "/" (xmpp:username connection))
@@ -120,13 +130,17 @@
        (reply-chat connection (xmpp:from message)
                    reply (xmpp::type- message))))
     ((equal "ci")
-     (let ((reply (handler-case (format nil "~a" (travis-status (get-github-repo)))
+     (let ((reply (handler-case 
+                      (format nil "~a" 
+                              (travis-status (get-github-repo)))
                     (error (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
                    reply (xmpp::type- message))))
     ((optima.ppcre:ppcre "^tr (.+)$" text)
-     (reply-chat connection (xmpp:from message)
-                 (yandex-translate text) (xmpp::type- message)))))
+     (let ((reply (handler-case (yandex-translate text)
+                    (error (e) (format nil "~a" e)))))
+       (reply-chat connection (xmpp:from message)
+                   reply (xmpp::type- message))))))
 
 (defun format-errors ()
   (with-output-to-string (s)
@@ -267,13 +281,16 @@
     (bordeaux-threads:make-thread #'(lambda () (apply #'connect args))
                                   :name (make-thread-name login))))
 
-(defun connect (login pass &key room (nick login))
+(defun connect (&optional (login *jabber-login*) (pass *jabber-password*) 
+                &key (room *jabber-room*) 
+                  (nick *jabber-login*)
+                  (server *jabber-server*))
   (check-type login string)
   (check-type pass string)
   (check-type room string)
   (let ((*room* room))
     (declare (special *room*))
-    (setf *connection* (xmpp:connect-tls :hostname "jabber.ru"))
+    (setf *connection* (xmpp:connect-tls :hostname server))
     (setf room (format nil "~a/~a" room nick))
     (unwind-protect (progn
                       (xmpp:auth *connection* login pass "/bot"

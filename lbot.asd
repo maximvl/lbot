@@ -16,7 +16,8 @@
                #:split-sequence
                #:html-entities
                #:plump
-               #:clon)
+               #:clon
+               #:cl-json)
   :components ((:file "package")
                (:file "lbot")
                (:file "utils")))
