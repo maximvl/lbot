@@ -15,7 +15,8 @@
 (defparameter *jabber-room* nil)
 
 (defun load-config (&optional (file "config.lisp"))
-  (load file :verbose t :print t))
+  (handler-case (load file :verbose t :print t)
+    (error (e) (format t "CONFIG LOAD FAILED: ~a" e))))
 
 (load-config)
 
