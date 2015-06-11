@@ -23,7 +23,9 @@
    (created-at :type integer
                :initarg :created-at
                :accessor idea-created-at
-               :initform (get-universal-time))))
+               :initform (local-time:timestamp-to-unix
+                          (local-time:universal-to-timestamp
+                           (get-universal-time))))))
 
 
 (defmethod print-object ((object idea) stream)
@@ -34,17 +36,16 @@
             (format-time (idea-created-at object)))))
 
 (defun add-idea (from idea)
-  (push (make-instance 'idea
-                       :user from
-                       :text idea)
-        *ideas*))
+  (let ((idea (make-instance 'idea :user from :text idea)))
+    (clsql:update-records-from-instance idea)))
 
-(defun format-ideas (ideas)
+(defun format-ideas (&optional (n 10))
   (format nil "ideas: ~{~&~a~}" *ideas*))
 
 ;; global vars
 (defparameter *connection* nil)
-(defparameter *db* (clsql:connect '("lbot.sqlite") :database-type :sqlite))
+(defparameter *db* (clsql:connect '("lbot.sqlite")
+                                  :make-default t :database-type :sqlite3))
 
 (defparameter *yandex-api-key* nil)
 (defparameter *jabber-login* nil)

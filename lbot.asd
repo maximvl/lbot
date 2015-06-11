@@ -18,7 +18,8 @@
                #:plump
                #:clon
                #:clsql
-               #:cl-json)
+               #:cl-json
+               #:local-time)
   :components ((:file "package")
                (:file "lbot")
                (:file "utils")))
