@@ -302,11 +302,11 @@
       (push "-l" args))
     (run-program (format nil "fortune -a ~{~a ~}" args))))
 
-(defun yandex-translate (text &key (lang "ru"))
+(defun yandex-translate (text &key lang-from (lang-to "ru"))
   (multiple-value-bind (data status)
       (drakma:http-request "https://translate.yandex.net/api/v1.5/tr.json/translate"
        :method :post :parameters `(("key" . ,*yandex-api-key*)
-                                   ("lang" . ,lang)
+                                   ("lang" . ,(format nil "~:[~;~:*~a-~]~a" lang-from lang-to))
                                    ("text" . ,text))
        :external-format-out :utf-8)
     (if (= 200 status)
