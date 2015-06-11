@@ -210,13 +210,20 @@
                       (error (e) (format nil "~a" e)))))
          (reply-chat connection (xmpp:from message)
                      reply (xmpp::type- message))))
+      ((optima.ppcre:ppcre "^ci (.+)$" branch)
+       (let ((reply (handler-case
+                        (format nil "~a"
+                                (travis-status (get-github-repo) :branch branch))
+                      (error (e) (format nil "~a" e)))))
+         (reply-chat connection (xmpp:from message)
+                     reply (xmpp::type- message))))
       ((equal "ci")
        (let ((reply (handler-case
                         (format nil "~a"
                                 (travis-status (get-github-repo)))
                       (error (e) (format nil "~a" e)))))
          (reply-chat connection (xmpp:from message)
-                     (get-erl-man-info m f a) (xmpp::type- message))))
+                     reply (xmpp::type- message))))
       ((optima.ppcre:ppcre "^tr ([a-zA-Z]{2}) (.+)$" lang text)
        (let ((reply (handler-case (yandex-translate text :lang-to lang)
                       (error (e) (format nil "~a" e)))))
