@@ -17,7 +17,9 @@
                #:html-entities
                #:plump
                #:clon
-               #:cl-json)
+               #:clsql
+               #:cl-json
+               #:local-time)
   :components ((:file "package")
                (:file "lbot")
                (:file "utils")))
