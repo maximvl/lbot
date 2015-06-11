@@ -307,7 +307,8 @@
       (drakma:http-request "https://translate.yandex.net/api/v1.5/tr.json/translate"
        :method :post :parameters `(("key" . ,*yandex-api-key*)
                                    ("lang" . ,lang)
-                                   ("text" . ,text)))
+                                   ("text" . ,text))
+       :external-format-out :utf-8)
     (if (= 200 status)
         (let ((data (cl-json:decode-json-from-string
                      (babel:octets-to-string data))))
