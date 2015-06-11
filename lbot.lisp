@@ -30,7 +30,7 @@
 
 (defmethod print-object ((object idea) stream)
   (print-unreadable-object (object stream :type nil :identity nil)
-    (format stream "idea: ~A from ~A at ~A"
+    (format stream "idea: ~A by ~A at ~A"
             (idea-text object)
             (idea-user object)
             (format-time (idea-created-at object)))))
@@ -40,11 +40,16 @@
     (clsql:update-records-from-instance idea)))
 
 (defun format-ideas (&optional (n 10))
-  (format nil "ideas: ~{~&~a~}" *ideas*))
+  (let ((ideas (clsql:select 'idea
+                             :limit n
+                             :order-by '(((id) :desc))
+                             :flatp t
+                             :refresh t)))
+    (format nil "ideas: ~{~&~a~}" ideas)))
 
 ;; global vars
 (defparameter *connection* nil)
-(defparameter *db* (clsql:connect '("lbot.sqlite")
+(defparameter *db* (clsql:connect '("lbot.sqlite3")
                                   :make-default t :database-type :sqlite3))
 
 (defparameter *yandex-api-key* nil)
@@ -53,6 +58,8 @@
 (defparameter *jabber-server* nil)
 (defparameter *jabber-room* nil)
 
+(defparameter *on-update-hooks* (list #'setup-db))
+
 (defun load-config (&optional (file "config.lisp"))
   (handler-case (load file :verbose t :print t)
     (error (e) (format t "CONFIG LOAD FAILED: ~a" e))))
@@ -60,8 +67,9 @@
 (load-config)
 
 ;; code
-(defun setup-db (db)
-  (create-view-from-class 'idea :database *db*))
+(defun setup-db (&optional (db *db*))
+  (unless (clsql:table-exists-p 'idea)
+    (clsql:create-view-from-class 'idea :database db)))
 
 (defun process-message (connection message)
   (unless (search (concatenate 'string "/" (xmpp:username connection))
@@ -146,20 +154,24 @@
      (reply-chat connection (xmpp:from message)
                  (get-erl-man-info m) (xmpp::type- message)))
     ((optima.ppcre:ppcre "^idea (.+)$" idea)
-     (add-idea (reply-nick (xmpp:from message)) idea)
+     (add-idea (xmpp:from message) idea)
      (reply-chat connection (xmpp:from message)
                  "got it" (xmpp::type- message)
                  :highlight (reply-nick (xmpp:from message))))
     ((equal "ideas")
      (reply-chat connection (xmpp:from message)
-                 (format-ideas *ideas*) (xmpp::type- message)))
+                 (format-ideas 10) (xmpp::type- message)))
     ((equal "reload")
      (let ((reply
             (handler-case
                 (let* ((repo (get-github-repo))
                        (status (travis-status repo)))
                   (if (eq status :passing)
-                      (progn (reload)
+                      (progn (handler-bind
+                                 ((update-progress #'(lambda (p)
+                                                       (reply-chat connection (xmpp:from message)
+                                                                   (update-progress-message p) (xmpp::type- message)))))
+                               (update))
                              (git-version))
                       (format nil "ci status: ~a (https://travis-ci.org/~a)"
                               status repo)))
@@ -168,14 +180,14 @@
                    reply (xmpp::type- message))))
     ((equal "reload!")
      (let ((reply (handler-case (progn
-                                  (reload)
+                                  (update)
                                   (git-version))
                     (error (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
                    reply (xmpp::type- message))))
     ((equal "ci")
-     (let ((reply (handler-case 
-                      (format nil "~a" 
+     (let ((reply (handler-case
+                      (format nil "~a"
                               (travis-status (get-github-repo)))
                     (error (e) (format nil "~a" e)))))
        (reply-chat connection (xmpp:from message)
@@ -325,13 +337,16 @@
     (bordeaux-threads:make-thread #'(lambda () (apply #'connect args))
                                   :name (make-thread-name login))))
 
-(defun connect (&optional (login *jabber-login*) (pass *jabber-password*) 
-                &key (room *jabber-room*) 
+(defun connect (&optional (login *jabber-login*) (pass *jabber-password*)
+                &key (room *jabber-room*)
                   (nick *jabber-login*)
                   (server *jabber-server*))
   (check-type login string)
   (check-type pass string)
   (check-type room string)
+  (handler-case (setup-db)
+    (error (e) (format t "error while setupping db: ~a" e)))
+
   (let ((*room* room))
     (declare (special *room*))
     (setf *connection* (xmpp:connect-tls :hostname server))

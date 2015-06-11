@@ -30,25 +30,45 @@
        :ignore-error-status t)
     (if (zerop status)
         out
-        (error (format nil "command ~s exited with status ~a: ~s" cmd status err)))))
+        (error (format nil
+                       "command ~s exited with status ~a: ~s"
+                       cmd status err)))))
 
 (defun git-version ()
   (with-system-path (path "lbot")
-    (run-program (format nil "cd ~a && git log -1 --format='%cD (%cr)'" path))))
+    (run-program (format nil
+                         "cd ~a && git log -1 --format='%cD (%cr)'"
+                         path))))
 
-(defun reload ()
+(define-condition update-progress ()
+  ((message :initarg :message
+            :accessor update-progress-message
+            :initform "")))
+
+(defun update ()
   (with-system-path (path "lbot")
+    (signal 'update-progress :message "pulling code")
     (run-program (format nil "cd ~a && git pull" path))
-    (ql:quickload "lbot")))
+    (loop for h in *on-update-hooks*
+       do (progn
+            (signal 'update-progress
+                    :message (format nil "running hook ~a" h))
+            (handler-case (funcall h)
+              (error (e) (signal 'update-progress
+                                 :message (format t "~a" e))))))
+    (signal 'update-progress :message "reloading systems")
+    (ql:quickload "lbot")
+    (signal 'update-progress :message "done.")))
 
 (defun format-time (&optional (time (get-universal-time)))
-  (check-type time integer)
-  (multiple-value-bind
-        (second minute hour date month year day-of-week dst-p tz)
-      (decode-universal-time time)
-    (declare (ignore second day-of-week dst-p tz))
-    (format nil "~2,'0d-~2,'0d-~d ~2,'0d:~2,'0d"
-            date month year hour minute)))
+  (when (numberp time)
+    (setf time (local-time:universal-to-timestamp time)))
+  (format nil "~2,'0d-~2,'0d-~d ~2,'0d:~2,'0d"
+          (local-time:timestamp-day time)
+          (local-time:timestamp-month time)
+          (local-time:timestamp-year time)
+          (local-time:timestamp-hour time)
+          (local-time:timestamp-minute time)))
 
 (defun travis-status (repo &key (branch "master"))
   (check-type repo string)
