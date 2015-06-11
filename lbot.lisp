@@ -6,8 +6,51 @@
 
 (require :cl-xmpp-tls)
 
+;; classes
+
+(clsql:def-view-class idea ()
+  ((id :db-kind :key
+       :db-contstraints :not-null
+       :type integer
+       :initarg :id
+       :accessor idea-id)
+   (user :type string
+         :initarg :user
+         :accessor idea-user)
+   (text :type (string 300)
+         :initarg :text
+         :accessor idea-text)
+   (created-at :type integer
+               :initarg :created-at
+               :accessor idea-created-at
+               :initform (get-universal-time))))
+
+
+(defmethod print-object ((object idea) stream)
+  (print-unreadable-object (object stream :type nil :identity nil)
+    (format stream "idea: ~A from ~A at ~A"
+            (idea-text object)
+            (idea-user object)
+            (format-time (idea-created-at object)))))
+
+(defun add-idea (from idea)
+  (push (make-instance 'idea
+                       :user from
+                       :text idea)
+        *ideas*))
+
+(defun format-ideas (ideas)
+  (format nil "ideas: ~{~&~a~}" *ideas*))
+
+;; global vars
 
 (defparameter *connection* nil)
+(defparameter *db* (clsql:connect '("lbot.sqlite") :database-type :sqlite))
+
+(defun setup-db (db)
+  (create-view-from-class 'idea :database *db*))
+
+;; code
 
 (defun process-message (connection message)
   (unless (search (concatenate 'string "/" (xmpp:username connection))
