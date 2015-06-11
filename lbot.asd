@@ -17,7 +17,8 @@
                #:html-entities
                #:plump
                #:clon
-               #:clsql)
+               #:clsql
+               #:cl-json)
   :components ((:file "package")
                (:file "lbot")
                (:file "utils")))

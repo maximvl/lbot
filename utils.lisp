@@ -301,3 +301,15 @@
     (when long
       (push "-l" args))
     (run-program (format nil "fortune -a ~{~a ~}" args))))
+
+(defun yandex-translate (text &key (lang "ru"))
+  (multiple-value-bind (data status)
+      (drakma:http-request "https://translate.yandex.net/api/v1.5/tr.json/translate"
+       :method :post :parameters `(("key" . ,*yandex-api-key*)
+                                   ("lang" . ,lang)
+                                   ("text" . ,text)))
+    (if (= 200 status)
+        (let ((data (cl-json:decode-json-from-string
+                     (babel:octets-to-string data))))
+          (cadr (assoc :text data)))
+        (error (format nil "yandex api returned ~a" status)))))
