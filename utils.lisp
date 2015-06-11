@@ -314,3 +314,13 @@
                      (babel:octets-to-string data))))
           (cadr (assoc :text data)))
         (error (format nil "yandex api returned ~a" status)))))
+
+(defun lstack-push (item stack)
+  (let ((content-size (length (lstack-content stack))))
+    (if (= content-size (lstack-size stack))
+        (setf (lstack-content stack)
+              (push item (subseq (lstack-content stack) 0 (1- content-size))))
+        (push item (lstack-content stack)))))
+
+(defun lstack-pick (stack)
+  (car (lstack-content stack)))
