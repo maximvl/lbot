@@ -184,6 +184,10 @@
       ((equal "ideas")
        (reply-chat connection (xmpp:from message)
                    (format-ideas 10) (xmpp::type- message)))
+      ((equal "0071")
+       (reply-chat connection (xmpp:from message)
+                   "your client does not support xep-0071" (xmpp::type- message)
+                   :xhtml (format nil "<a href='http://planet.lisp.org/'>lisp-planet</a>~%<img src='http://www.lisperati.com/lisplogo_alien_256.png'/>")))
       ((equal "reload")
        (let ((reply
               (handler-case
@@ -302,15 +306,30 @@
                  "отсоси у тракториста" (xmpp::type- message)
                  :highlight (reply-nick (xmpp:from message))))))
 
-(defun reply-chat (connection to reply kind &key highlight)
+(defmethod xmpp:message ((connection xmpp:connection)
+                         to body &key id (type :chat) xhtml-body)
+  (cl-xmpp::with-xml-output (connection)
+    (cxml:with-element "message"
+      (cxml:attribute "to" to)
+      (when id (cxml:attribute "id" id))
+      (when type (cxml:attribute "type" (string-downcase (string type))))
+      (cxml:with-element "body" (cxml:text body))
+      (when xhtml-body
+        (cxml:with-element "html"
+          (cxml:attribute "xmlns" "http://jabber.org/protocol/xhtml-im")
+          (cxml:with-element "body"
+            (cxml:attribute "xmlns" "http://www.w3.org/1999/xhtml")
+            (cxml:unescaped xhtml-body)))))))
+
+(defun reply-chat (connection to reply kind &key highlight xhtml)
   (check-type reply (or string null))
   (check-type highlight (or string null))
   (if (string-equal kind "groupchat")
     (let* ((pos (position #\/ to))
            (to (if pos (subseq to 0 pos) to))
            (reply (if highlight (format nil "~a: ~a" highlight reply) reply)))
-      (xmpp:message connection to reply :type :groupchat))
-    (xmpp:message connection to reply :type :chat)))
+      (xmpp:message connection to reply :type :groupchat :xhtml-body xhtml))
+    (xmpp:message connection to reply :type :chat :xhtml-body xhtml)))
 
 (defmethod xmpp:handle ((connection xmpp:connection) (message xmpp:message))
   (format xmpp:*debug-stream* "~&message: ~a" (xmpp:body message))
