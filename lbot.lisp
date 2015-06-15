@@ -53,9 +53,9 @@
 
 ;; global vars
 
-(defparameter *connection* nil)
-(defparameter *db* (clsql:connect '("lbot.sqlite3")
-                                  :make-default t :database-type :sqlite3))
+(defvar *connection* nil)
+(defvar *db* (clsql:connect '("lbot.sqlite3")
+                            :make-default t :database-type :sqlite3))
 
 (defparameter *yandex-api-key* nil)
 (defparameter *jabber-login* nil)
@@ -64,9 +64,7 @@
 (defparameter *jabber-room* nil)
 
 (defparameter *on-update-hooks* nil)
-
 (defparameter *last-messages* (make-lstack :size 10))
-(defparameter *ideas* nil)
 
 (defun load-config (&optional (file "config.lisp"))
   (handler-case (load file :verbose t :print t)
