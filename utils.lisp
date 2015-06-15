@@ -344,3 +344,21 @@
 
 (defun lstack-pick (stack)
   (car (lstack-content stack)))
+
+(defun hn-top-items (&optional (amount 5))
+  (check-type amount integer)
+  (multiple-value-bind (data status)
+      (drakma:http-request "https://hacker-news.firebaseio.com/v0/topstories.json")
+    (if (= 200 status)
+        (let ((top (json:decode-json-from-string (babel:octets-to-string data))))
+          (subseq top 0 amount))
+        (error (format nil "hn api returned ~a" status)))))
+
+(defun hn-item-info (id)
+  (check-type id integer)
+  (multiple-value-bind (data status)
+      (drakma:http-request (format nil "https://hacker-news.firebaseio.com/v0/item/~a.json" id))
+    (if (= 200 status)
+        (json:decode-json-from-string (babel:octets-to-string data))
+        (error (format nil "hn api returned ~a" status)))))
+
