@@ -122,9 +122,9 @@
       (ppcre:regex-replace-all
        "\\^\\^\\^"
        text
-       (third content))
-      (second content))
-     (first content))))
+       (fourth content))
+      (third content))
+     (second content))))
 
 (defun process-personal (connection message)
   (let ((body (replace-last-messages (xmpp:body message))))
