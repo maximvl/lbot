@@ -362,3 +362,8 @@
         (json:decode-json-from-string (babel:octets-to-string data))
         (error (format nil "hn api returned ~a" status)))))
 
+(defun format-hn-info (item)
+  (format nil "~a [<a href='~a'>урл</a>] [<a href='https://news.ycombinator.com/item?id=~a'>дискач</a>]"
+          (cdr (assoc :title item))
+          (cdr (assoc :url item))
+          (cdr (assoc :id item))))

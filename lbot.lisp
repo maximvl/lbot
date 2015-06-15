@@ -224,7 +224,7 @@
                      reply (xmpp::type- message))))
       ((equal "hntop")
        (let ((reply (loop for id in (hn-top-items)
-                         collect (cdr (assoc :title (hn-item-info id))))))
+                         collect (format-hn-info (hn-item-info id)))))
          (reply-chat connection (xmpp:from message)
                      (format nil "~{~a~^~&~}" reply) (xmpp::type- message))))
       ((equal "mem")
