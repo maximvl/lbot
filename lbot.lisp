@@ -296,6 +296,13 @@
 
 (defun process-common (connection message)
   (optima:match (xmpp:body message)
+    ((or (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.jpg)" url)
+         (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.jpeg)" url)
+         (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.png)" url)
+         (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.gif)" url))
+     (reply-chat connection (xmpp:from message)
+                 "force your client to support xep-0071 already" (xmpp::type- message)
+                 :xhtml (format nil "<img src='~a'/>" url)))
     ((optima.ppcre:ppcre "(http[s]?://[\\S]+)" url)
      (let ((title (get-http-page-title url)))
        (when title
