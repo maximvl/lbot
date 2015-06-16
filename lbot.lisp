@@ -433,8 +433,7 @@
           (format t "~&XMPP ERROR: ~a" e)
           (push (make-user-error e) *errors*)
           (sleep 5)
-          (connect login pass :room room))))))
-
+          (connect login pass :room room :nick nick :server server))))))
 
 (defun start-loop ()
   (xmpp:receive-stanza-loop *connection*))
