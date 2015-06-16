@@ -186,7 +186,7 @@
                    (format-ideas 10) (xmpp::type- message)))
       ((equal "0071")
        (reply-chat connection (xmpp:from message)
-                   "your client does not support xep-0071" (xmpp::type- message)
+                   body (xmpp::type- message)
                    :xhtml (format nil "<a href='http://planet.lisp.org/'>lisp-planet</a>~%<img src='http://www.lisperati.com/lisplogo_alien_256.png'/>")))
       ((equal "reload")
        (let ((reply
