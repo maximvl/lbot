@@ -416,18 +416,25 @@
     (declare (special *room*))
     (setf *connection* (xmpp:connect-tls :hostname server))
     (setf room (format nil "~a/~a" room nick))
-    (unwind-protect (progn
-                      (xmpp:auth *connection* login pass "/bot"
-                                 :mechanism :sasl-digest-md5)
-                      (xmpp:bind *connection* "emacs")
-                      (xmpp:session *connection*)
-                      (xmpp:presence *connection*
-                                     :show "chat"
-                                     :status "online")
-                      (xmpp:receive-stanza-loop
-                       *connection*
-                       :stanza-callback #'callback-with-restart))
-      (xmpp:disconnect *connection*))))
+    (handler-case (unwind-protect
+                       (progn (xmpp:auth *connection* login pass "/bot"
+                                         :mechanism :sasl-digest-md5)
+                              (xmpp:bind *connection* "emacs")
+                              (xmpp:session *connection*)
+                              (xmpp:presence *connection*
+                                             :show "chat"
+                                             :status "online")
+                              (xmpp:receive-stanza-loop
+                               *connection*
+                               :stanza-callback #'callback-with-restart))
+                    (xmpp:disconnect *connection*))
+      (error (e)
+        (progn
+          (format t "~&XMPP ERROR: ~a" e)
+          (push (make-user-error e) *errors*)
+          (sleep 5)
+          (connect login pass :room room))))))
+
 
 (defun start-loop ()
   (xmpp:receive-stanza-loop *connection*))
