@@ -229,7 +229,7 @@
       ((equal "hntop")
        (let* ((items (loop for id in (hn-top-items)
                         collect (hn-item-info id)))
-              (reply (format nil "~{~a~^~&~}" (mapcar #'(lambda (e) (assoc :title e)) items)))
+              (reply (format nil "~{~a~^~&~}" (mapcar #'(lambda (e) (cdr (assoc :title e))) items)))
               (reply-xhtml (format nil "~{~a~^~&<br/>~}" (mapcar #'format-hn-info items))))
          (reply-chat connection (xmpp:from message)
                      reply (xmpp::type- message) :xhtml reply-xhtml)))
