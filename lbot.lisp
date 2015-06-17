@@ -111,7 +111,7 @@
   (unless (process-personal connection message)
     (unless (process-common connection message)
       (reply-chat connection (xmpp:from message)
-                  "No." (xmpp::type- message)))))
+                  (nth (random 2) '("No." "Yes.")) (xmpp::type- message)))))
 
 (defun replace-last-messages (text)
   (let ((content (lstack-content *last-messages*)))
