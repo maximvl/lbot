@@ -1,5 +1,15 @@
 (in-package #:lbot)
 
+(defparameter *text-content-types*
+  '(("text" . nil)
+    ("application" . "rss+xml")
+    ("application" . "json")
+    ("image" . "svg+xml")))
+
+(defmacro with-content-types (&body body)
+  `(let ((drakma:*text-content-types* *text-content-types*))
+     ,@body))
+
 (defun my-subseq (seq start &optional end)
   (check-type seq sequence)
   (check-type start fixnum)
@@ -74,9 +84,10 @@
   (check-type repo string)
   (check-type branch string)
   (let ((url (format nil "https://api.travis-ci.org/~a.svg?branch=~a" repo branch)))
+    (with-content-types
     (multiple-value-bind (res code) (drakma:http-request url)
       (if (= code 200)
-          (let* ((res (plump:parse (babel:octets-to-string res)))
+            (let* ((res (plump:parse res))
                  (last-child (alexandria:last-elt
                               (plump:children (aref (plump:children res) 0))))
                  (last-text (plump:text
@@ -87,7 +98,7 @@
               ((string-equal "passing" last-text) :passing)
               ((string-equal "failing" last-text) :failing)
               (t :unknown)))
-          (error (format nil "http request to ~s returned ~a" url code))))))
+            (error (format nil "http request to ~s returned ~a" url code)))))))
 
 (defun get-github-repo (&optional (system (string-downcase (package-name #.*package*))))
   (check-type system (or string keyword))
@@ -323,17 +334,19 @@
     (run-program (format nil "fortune -a ~{~a ~}" args))))
 
 (defun yandex-translate (text &key lang-from (lang-to "ru"))
+  (with-content-types
   (multiple-value-bind (data status)
       (drakma:http-request "https://translate.yandex.net/api/v1.5/tr.json/translate"
-       :method :post :parameters `(("key" . ,*yandex-api-key*)
-                                   ("lang" . ,(format nil "~:[~;~:*~a-~]~a" lang-from lang-to))
+                             :method :post
+                             :parameters `(("key" . ,*yandex-api-key*)
+                                           ("lang" . ,(format nil "~:[~;~:*~a-~]~a"
+                                                              lang-from lang-to))
                                    ("text" . ,text))
        :external-format-out :utf-8)
     (if (= 200 status)
-        (let ((data (cl-json:decode-json-from-string
-                     (babel:octets-to-string data))))
+          (let ((data (cl-json:decode-json-from-string data)))
           (cadr (assoc :text data)))
-        (error (format nil "yandex api returned ~a" status)))))
+          (error (format nil "yandex api returned ~a" status))))))
 
 (defun lstack-push (item stack)
   (let ((content-size (length (lstack-content stack))))
@@ -347,20 +360,24 @@
 
 (defun hn-top-items (&optional (amount 5))
   (check-type amount integer)
+  (with-content-types
   (multiple-value-bind (data status)
       (drakma:http-request "https://hacker-news.firebaseio.com/v0/topstories.json")
     (if (= 200 status)
-        (let ((top (json:decode-json-from-string (babel:octets-to-string data))))
+          (let ((top (json:decode-json-from-string data)))
           (subseq top 0 amount))
-        (error (format nil "hn api returned ~a" status)))))
+          (error (format nil "hn api returned ~a" status))))))
 
 (defun hn-item-info (id)
   (check-type id integer)
+  (with-content-types
   (multiple-value-bind (data status)
-      (drakma:http-request (format nil "https://hacker-news.firebaseio.com/v0/item/~a.json" id))
+        (drakma:http-request (format
+                              nil
+                              "https://hacker-news.firebaseio.com/v0/item/~a.json" id))
     (if (= 200 status)
-        (json:decode-json-from-string (babel:octets-to-string data))
-        (error (format nil "hn api returned ~a" status)))))
+          (json:decode-json-from-string data)
+          (error (format nil "hn api returned ~a" status))))))
 
 (defun format-hn-info (item)
   (format nil "~a [<a href='~a'>урл</a>] [<a href='https://news.ycombinator.com/item?id=~a'>дискач</a>]"
