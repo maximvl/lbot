@@ -278,7 +278,7 @@
                            (subseq (xmpp:from message) (1+ pos))
                            (xmpp:from message))))
               (reply-chat connection (xmpp:from message)
-                          (format nil "~a: ~a" (nth (random 2) '("No." "Yes.")) to)
+                          (format nil "~a: ~a" to (nth (random 2) '("No." "Yes.")))
                           (xmpp::type- message)))))
         (process-common connection message))))
 
