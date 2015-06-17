@@ -253,7 +253,12 @@
            (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.gif)" url))
        (reply-chat connection (xmpp:from message)
                    "force your client to support xep-0071 already" (xmpp::type- message)
-                   :xhtml (format nil "<img src='~a'/>" url))))))
+                   :xhtml (format nil "<img src='~a'/>" url)))
+      ((equal "?")
+       (let ((reply (handler-case (get-random-advice)
+                      (error (e) (format nil "~a" e)))))
+         (reply-chat connection (xmpp:from message)
+                     reply (xmpp::type- message)))))))
 
 (defun format-errors ()
   (with-output-to-string (s)

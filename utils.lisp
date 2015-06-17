@@ -367,3 +367,10 @@
           (cdr (assoc :title item))
           (cdr (assoc :url item))
           (cdr (assoc :id item))))
+
+(defun get-random-advice ()
+  (multiple-value-bind (data status)
+      (drakma:http-request "http://fucking-great-advice.ru/api/random")
+    (if (= 200 status)
+        (cdr (assoc :text (json:decode-json-from-string data)))
+        (error (format nil "great-advice api returned ~a" status)))))
