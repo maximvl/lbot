@@ -428,7 +428,6 @@
   (let ((*room* room))
     (declare (special *room*))
     (setf *connection* (xmpp:connect-tls :hostname server))
-    (setf room (format nil "~a/~a" room nick))
     (handler-case (unwind-protect
                        (progn (xmpp:auth *connection* login pass "/bot"
                                          :mechanism :sasl-digest-md5)
