@@ -85,19 +85,19 @@
   (check-type branch string)
   (let ((url (format nil "https://api.travis-ci.org/~a.svg?branch=~a" repo branch)))
     (with-content-types
-    (multiple-value-bind (res code) (drakma:http-request url)
-      (if (= code 200)
+      (multiple-value-bind (res code) (drakma:http-request url)
+        (if (= code 200)
             (let* ((res (plump:parse res))
-                 (last-child (alexandria:last-elt
-                              (plump:children (aref (plump:children res) 0))))
-                 (last-text (plump:text
-                             (aref (plump:children (alexandria:last-elt
-                                                    (plump:children last-child)))
-                                   0))))
-            (cond
-              ((string-equal "passing" last-text) :passing)
-              ((string-equal "failing" last-text) :failing)
-              (t :unknown)))
+                   (last-child (alexandria:last-elt
+                                (plump:children (aref (plump:children res) 0))))
+                   (last-text (plump:text
+                               (aref (plump:children (alexandria:last-elt
+                                                      (plump:children last-child)))
+                                     0))))
+              (cond
+                ((string-equal "passing" last-text) :passing)
+                ((string-equal "failing" last-text) :failing)
+                (t :unknown)))
             (error (format nil "http request to ~s returned ~a" url code)))))))
 
 (defun get-github-repo (&optional (system (string-downcase (package-name #.*package*))))
@@ -335,17 +335,17 @@
 
 (defun yandex-translate (text &key lang-from (lang-to "ru"))
   (with-content-types
-  (multiple-value-bind (data status)
-      (drakma:http-request "https://translate.yandex.net/api/v1.5/tr.json/translate"
+    (multiple-value-bind (data status)
+        (drakma:http-request "https://translate.yandex.net/api/v1.5/tr.json/translate"
                              :method :post
                              :parameters `(("key" . ,*yandex-api-key*)
                                            ("lang" . ,(format nil "~:[~;~:*~a-~]~a"
                                                               lang-from lang-to))
-                                   ("text" . ,text))
-       :external-format-out :utf-8)
-    (if (= 200 status)
+                                           ("text" . ,text))
+                             :external-format-out :utf-8)
+      (if (= 200 status)
           (let ((data (cl-json:decode-json-from-string data)))
-          (cadr (assoc :text data)))
+            (cadr (assoc :text data)))
           (error (format nil "yandex api returned ~a" status))))))
 
 (defun lstack-push (item stack)
@@ -361,21 +361,21 @@
 (defun hn-top-items (&optional (amount 5))
   (check-type amount integer)
   (with-content-types
-  (multiple-value-bind (data status)
-      (drakma:http-request "https://hacker-news.firebaseio.com/v0/topstories.json")
-    (if (= 200 status)
+    (multiple-value-bind (data status)
+        (drakma:http-request "https://hacker-news.firebaseio.com/v0/topstories.json")
+      (if (= 200 status)
           (let ((top (json:decode-json-from-string data)))
-          (subseq top 0 amount))
+            (subseq top 0 amount))
           (error (format nil "hn api returned ~a" status))))))
 
 (defun hn-item-info (id)
   (check-type id integer)
   (with-content-types
-  (multiple-value-bind (data status)
+    (multiple-value-bind (data status)
         (drakma:http-request (format
                               nil
                               "https://hacker-news.firebaseio.com/v0/item/~a.json" id))
-    (if (= 200 status)
+      (if (= 200 status)
           (json:decode-json-from-string data)
           (error (format nil "hn api returned ~a" status))))))
 
@@ -391,3 +391,36 @@
     (if (= 200 status)
         (html-entities:decode-entities (cdr (assoc :text (json:decode-json-from-string data))))
         (error (format nil "great-advice api returned ~a" status)))))
+
+(defun cbr-rates (&key
+                    (range2 (local-time:universal-to-timestamp (get-universal-time)))
+                    (range1 (local-time:timestamp- range2 1 :month))
+                    (code "R01235"))
+  "API DOCS: http://www.cbr.ru/scripts/Root.asp?PrtId=SXML"
+  (flet ((date-formatter (d) (format nil "~2,'0d/~2,'0d/~d"
+                                     (local-time:timestamp-day d)
+                                     (local-time:timestamp-month d)
+                                     (local-time:timestamp-year d))))
+    (let ((date1 (date-formatter range1))
+          (date2 (date-formatter range2)))
+      (with-content-types
+        (multiple-value-bind (data status)
+            (drakma:http-request
+             (format
+              nil
+              "http://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=~a&date_req2=~a&VAL_NM_RQ=~a"
+              date1 date2 code))
+          (if (= 200 status)
+              (let ((records (cddr (xmls:parse data))))
+                (loop for r in records
+                   collect (with-input-from-string
+                               (in (ppcre:regex-replace-all ","  (third (fourth r)) "."))
+                             (read in nil nil))))
+              (error (format nil "cbr api returned ~a" status))))))))
+
+(defun spark-data (data)
+  (check-type data (or string list))
+  (cond
+    ((consp data) (run-program (format nil "spark ~{~a~^ ~}" data)))
+    ((stringp data) (run-program (format nil "spark ~a" data)))
+    (t (error (format nil "unsupported data type for spark-data: ~a" (type-of data))))))
