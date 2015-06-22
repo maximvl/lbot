@@ -424,3 +424,29 @@
     ((consp data) (run-program (format nil "spark ~{~a~^ ~}" data)))
     ((stringp data) (run-program (format nil "spark ~a" data)))
     (t (error (format nil "unsupported data type for spark-data: ~a" (type-of data))))))
+
+(defun http-request (url)
+  (check-type url string)
+  (with-content-types
+    (multiple-value-bind (data status headers)
+        (drakma:http-request url)
+      (if (= 200 status)
+          (values data status headers)
+          (error (format nil "request to ~s returned ~a" url status))))))
+
+(defun cnn-rss-list (&key topic)
+  (check-type topic (or null string))
+  (let* ((url (format nil "http://rss.cnn.com/rss/edition~@[_~a~].rss" topic)))
+    (rss:rss-site url)))
+
+(defun rss-item-format (item)
+  (format nil "~a" (rss:title item)))
+
+(defun format-cnn-list (&key topic (amount 5))
+  (let ((data (cnn-rss-list :topic topic)))
+    (if data
+        (with-output-to-string (*standard-output*)
+          (format t "~a" (rss:title data))
+          (loop for n in (my-subseq (rss:items data) 0 amount)
+             do (format t "~&~a" (rss-item-format n))))
+        (error (format nil "no data for topic ~a" topic)))))

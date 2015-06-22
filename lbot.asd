@@ -19,7 +19,9 @@
                #:clon
                #:clsql
                #:cl-json
-               #:local-time)
+               #:local-time
+               #:rss)
   :components ((:file "package")
                (:file "lbot")
-               (:file "utils")))
+               (:file "utils")
+               (:file "patches")))

@@ -259,6 +259,13 @@
                       (error (e) (format nil "~a" e)))))
          (reply-chat connection (xmpp:from message)
                      reply (xmpp::type- message))))
+      ((optima.ppcre:ppcre "^top ([\\S]+) ?([0-9]+)?$" topic amount)
+       (let* ((amount (or amount 5))
+              (reply (handler-case (format-cnn-list :topic topic
+                                                    :amount amount)
+                       (error (e) (format nil "~a" e)))))
+         (reply-chat connection (xmpp:from message)
+                     reply (xmpp::type- message))))
       ((equal "?")
        (let ((reply (handler-case (get-random-advice)
                       (error (e) (format nil "~a" e)))))
