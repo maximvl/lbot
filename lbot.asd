@@ -15,12 +15,12 @@
                #:cl-csv
                #:split-sequence
                #:html-entities
-               #:plump
                #:clon
                #:clsql
                #:cl-json
                #:local-time
-               #:rss)
+               #:rss
+               #:xmls)
   :components ((:file "package")
                (:file "lbot")
                (:file "utils")

@@ -18,6 +18,10 @@
       (subseq seq start)
       (subseq seq start end)))
 
+(defun last1 (l)
+  (check-type l list)
+  (car (last l)))
+
 (defun trim (string &key inside)
   (check-type string string)
   (string-trim '(#\Space #\Tab #\Newline)
@@ -87,13 +91,8 @@
     (with-content-types
       (multiple-value-bind (res code) (drakma:http-request url)
         (if (= code 200)
-            (let* ((res (plump:parse res))
-                   (last-child (alexandria:last-elt
-                                (plump:children (aref (plump:children res) 0))))
-                   (last-text (plump:text
-                               (aref (plump:children (alexandria:last-elt
-                                                      (plump:children last-child)))
-                                     0))))
+            (let* ((res (xmls:parse res))
+                   (last-text (last1 (last1 (last1 res)))))
               (cond
                 ((string-equal "passing" last-text) :passing)
                 ((string-equal "failing" last-text) :failing)
