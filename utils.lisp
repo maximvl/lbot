@@ -428,11 +428,10 @@
   (check-type data list)
   (let ((graph (spark-data data))
         (max (apply #'max data))
-        (min (apply #'min data))
-        (avg (/ (apply #'+ data) (length data))))
-    (format nil "~,2f ~a ~,2f (~,2f, ~,2f, ~,2f)"
+        (min (apply #'min data)))
+    (format nil "~,2f ~a ~,2f (H: ~,2f L: ~,2f)"
             (car data) graph (last1 data)
-            min avg max)))
+            max min)))
 
 (defun http-request (url)
   (check-type url string)
