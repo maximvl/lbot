@@ -255,7 +255,7 @@
                    "force your client to support xep-0071 already" (xmpp::type- message)
                    :xhtml (format nil "<img src='~a'/>" url)))
       ((equal "spark rates")
-       (let ((reply (handler-case (spark-data (cbr-rates))
+       (let ((reply (handler-case (format-spark-data (cbr-rates))
                       (error (e) (format nil "~a" e)))))
          (reply-chat connection (xmpp:from message)
                      reply (xmpp::type- message))))

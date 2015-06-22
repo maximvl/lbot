@@ -424,6 +424,16 @@
     ((stringp data) (run-program (format nil "spark ~a" data)))
     (t (error (format nil "unsupported data type for spark-data: ~a" (type-of data))))))
 
+(defun format-spark-data (data)
+  (check-type data list)
+  (let ((graph (spark-data data))
+        (max (apply #'max data))
+        (min (apply #'min data))
+        (avg (/ (apply #'+ data) (length data))))
+    (format nil "~,2f ~a ~,2f (~,2f, ~,2f, ~,2f)"
+            (car data) graph (last1 data)
+            min avg max)))
+
 (defun http-request (url)
   (check-type url string)
   (with-content-types
