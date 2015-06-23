@@ -321,7 +321,7 @@
 
 (defun process-common (connection message)
   (declare (special *room*))
-  (if (not (string-equal (xmpp:from message) *room*))
+  (unless (string-equal (xmpp:from message) *room*)
       (optima:match (xmpp:body message)
                     ((optima.ppcre:ppcre "(http[s]?://[\\S]+)" url)
                      (let ((title (get-http-page-title url)))
