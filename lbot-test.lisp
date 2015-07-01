@@ -51,17 +51,22 @@
          ,@body))))
 
 (with-input-from-encoded-string
-    (s "charset='utf-8' <title>тайтл-ютф</title>" :utf-8)
+    (s "<meta charset='utf-8'> <title>тайтл-ютф</title>" :utf-8)
   (is "тайтл-ютф" (lbot::get-title s)))
 
 (with-input-from-encoded-string
-    (s "charset=\"windows-1251\" <title>тайтл-1251</title>"
+    (s "<meta charset=\"windows-1251\"> <title>тайтл-1251</title>"
                                    :windows-1251)
   (is "тайтл-1251" (lbot::get-title s)))
 
 (with-input-from-encoded-string
-    (s "<title>тайтл-1251-2</title> charset='windows-1251'"
+    (s "<title>тайтл-1251-2</title> <meta charset='windows-1251'>"
                                    :windows-1251)
   (is "тайтл-1251-2" (lbot::get-title s :buff-size 10)))
+
+(with-input-from-encoded-string
+    (s "<title>тайтл-ютф-реаль</title> <fake charset='windows-1251'> <meta some text charset='utf-8'>" :utf-8)
+  (is "тайтл-ютф-реаль" (lbot::get-title s :buff-size 10)))
+
 
 (finalize)
