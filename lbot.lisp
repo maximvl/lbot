@@ -259,6 +259,13 @@
                       (error (e) (format nil "~a" e)))))
          (reply-chat connection (xmpp:from message)
                      reply (xmpp::type- message))))
+      ((equal "graph rates")
+       (let* ((now (local-time:universal-to-timestamp (get-universal-time)))
+              (rates (cbr-rates :range2 now :range1 (local-time:timestamp- now 3 :month)))
+              (reply (with-output-to-string (*standard-output*)
+                       (draw-graph rates :max-height 5 :fill-char #\u2588))))
+         (reply-chat connection (xmpp:from message)
+                     (format nil "~&~a" reply) (xmpp::type- message))))
       ((optima.ppcre:ppcre "^top ([\\S]+) ?([0-9]+)?$" topic amount)
        (let* ((amount (or amount 5))
               (reply (handler-case (format-cnn-list :topic topic
