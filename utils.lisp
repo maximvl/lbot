@@ -160,7 +160,7 @@
                     (declare (ignore stream))
                     (unless charset-set
                       (ppcre:register-groups-bind (charset)
-                          ("(?i)charset=[\"']?([^\"'\\s>]+)[\"']" data)
+                          ("(?i)<meta [^>]*charset=[\"']?([^\"'\\s>]+)[\"']" data)
                         (setf charset-set (make-keyword charset))))
                     (unless title-set
                       (ppcre:register-groups-bind

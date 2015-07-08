@@ -266,6 +266,10 @@
                        (error (e) (format nil "~a" e)))))
          (reply-chat connection (xmpp:from message)
                      reply (xmpp::type- message))))
+      ((equal "src")
+       (reply-chat connection (xmpp:from message)
+                   "https://github.com/maximvl/lbot"
+                   (xmpp::type- message)))
       ((equal "?")
        (let ((reply (handler-case (get-random-advice)
                       (error (e) (format nil "~a" e)))))
