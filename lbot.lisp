@@ -267,7 +267,7 @@
                                    :fill-char #\BLACK_VERTICAL_RECTANGLE
                                    :empty-char #\WHITE_VERTICAL_RECTANGLE))))
          (reply-chat connection (xmpp:from message)
-                     (format nil "~&~a" reply) (xmpp::type- message))))
+                     (format nil "~%~a" reply) (xmpp::type- message))))
       ((optima.ppcre:ppcre "^top ([\\S]+) ?([0-9]+)?$" topic amount)
        (let* ((amount (or amount 5))
               (reply (handler-case (format-cnn-list :topic topic
