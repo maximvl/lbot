@@ -68,7 +68,7 @@
 
 (defun load-config (&optional (file "config.lisp"))
   (handler-case (load file :verbose t :print t)
-    (error (e) (format t "CONFIG LOAD FAILED: ~a" e))))
+    (error (e) (format t "~&CONFIG LOAD FAILED: ~a" e))))
 
 (load-config)
 

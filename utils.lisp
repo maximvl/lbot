@@ -458,3 +458,24 @@
           (loop for n in (my-subseq (rss:items data) 0 amount)
              do (format t "~&~a" (rss-item-format n))))
         (error (format nil "no data for topic ~a" topic)))))
+
+(defun draw-line (l &key (empty-char #\Space) (fill-char #\.))
+  (let ((fmt-string (format nil "~~:[~a~~;~a~~]" empty-char fill-char)))
+    (loop for e in l
+       do (format t fmt-string e))))
+
+(defun draw-graph (data &key (empty-char #\Space) (fill-char #\.) max-height (min-step 0.5))
+  (let* ((max (apply #'max data))
+         (min (apply #'min data))
+         (diff (- max min))
+         (diff-height (/ diff min-step))
+         (max-height (or max-height diff-height))
+         (step (if (<= diff-height max-height)
+                   min-step
+                   (/ diff max-height))))
+    (loop for i from max downto min by step
+       do (progn
+            (draw-line (mapcar #'(lambda (x) (>= (- x i) 0)) data)
+                       :empty-char empty-char
+                       :fill-char fill-char)
+            (format t "~&")))))
