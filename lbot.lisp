@@ -179,7 +179,8 @@
       ((optima.ppcre:ppcre "^idea (.+)$" idea)
        (add-idea (xmpp:from message) idea)
        (reply-chat connection (xmpp:from message)
-                   "got it" (xmpp::type- message)
+                   "waiting for pull requests here: https://github.com/maximvl/lbot/pulls"
+                   (xmpp::type- message)
                    :highlight (reply-nick (xmpp:from message))))
       ((equal "ideas")
        (reply-chat connection (xmpp:from message)

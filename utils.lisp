@@ -475,7 +475,7 @@
                    (/ diff max-height))))
     (loop for i from max downto min by step
        do (progn
-            (draw-line (mapcar #'(lambda (x) (>= (- x i) 0)) data)
+            (draw-line (mapcar #'(lambda (x) (>= x i)) data)
                        :empty-char empty-char
                        :fill-char fill-char)
             (format t "~&")))))
