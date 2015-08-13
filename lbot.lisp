@@ -58,6 +58,7 @@
                             :make-default t :database-type :sqlite3))
 
 (defparameter *yandex-api-key* nil)
+(defparameter *readability-parser-token* nil)
 (defparameter *jabber-login* nil)
 (defparameter *jabber-password* nil)
 (defparameter *jabber-server* nil)
@@ -338,10 +339,15 @@
   (unless (string-equal (xmpp:from message) *room*)
       (optima:match (xmpp:body message)
                     ((optima.ppcre:ppcre "(http[s]?://[\\S]+)" url)
-                     (let ((title (get-http-page-title url)))
-                       (when title
+                     (let ((reply 
+                            (handler-case (let ((data (readability-parse url)))
+                                            (format nil "~a : ~a words"
+                                                    (cdr (assoc :title data))
+                                                    (cdr (assoc :word--count data))))
+                              (error () (get-http-page-title url)))))
+                       (when reply
                          (reply-chat connection (xmpp:from message)
-                                     title (xmpp::type- message)))))
+                                     reply (xmpp::type- message)))))
                     ((or (optima.ppcre:ppcre "(^|\\s)300($|\\s)")
                          (optima.ppcre:ppcre "(^|\\s)тристо($|\\s)")
                          (optima.ppcre:ppcre "(^|\\s)триста($|\\s)"))

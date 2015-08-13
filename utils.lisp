@@ -479,3 +479,24 @@
                        :empty-char empty-char
                        :fill-char fill-char)
             (format t "~&")))))
+
+(defun short-url (url)
+  (with-content-types
+    (multiple-value-bind (data status)
+        (drakma:http-request "http://nn.lv"
+                             :method :post
+                             :parameters `(("url" . ,url))
+                             :external-format-out :utf-8)
+      (if (= 200 status)
+          data
+          (error (format nil "request to ~s returned ~a" url status))))))
+
+(defun readability-parse (url &key (token *readability-parser-token*))
+  (let ((url (format nil "https://www.readability.com/api/content/v1/parser?token=~a&url=~a" token url)))
+    (with-content-types
+      (multiple-value-bind (data status)
+          (drakma:http-request url)
+        (if (= 200 status)
+            (json:decode-json-from-string data)
+            (error (format nil "readability api call returned ~a: ~a"
+                           status (json:decode-json-from-string data))))))))
