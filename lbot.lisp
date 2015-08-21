@@ -511,3 +511,107 @@
 (defun maybe-say (chat text-getter &key (idle-time (* 60 10)))
   (when (> (get-universal-time) (+ *last-message-time* idle-time))
     (send-groupchat chat (funcall text-getter))))
+
+
+(defparameter *chat-handlers* nil)
+
+(defstruct chat-handler
+  name help matcher handler)
+
+(defstruct chat-message
+  text author)
+
+(defmacro def-chat-handler (name &keyword matcher help handler)
+  `(pushnew (make-lstack :name ,name :matcher ,matcher :help ,help :handler ,handler)
+            ,*chat-handlers*
+            :key #'chat-handler-name
+            :test #'equal))
+
+(def-chat-handler version
+    :matcher (lambda (msg) (string= (chat-message-text msg) "v"))
+    :help "v - display version"
+    :handler (lambda (r)
+               (declare (ignore r))
+               `(:reply ,(handler-case (git-version)
+                          (error (e) (format nil "~a" e))))))
+
+(def-chat-handler errors
+    :matcher (lambda (msg) (string= (chat-message-text msg) "errors"))
+    :help "errors - display last errors"
+    :handler (lambda (r)
+               (declare (ignore r))
+               `(:reply ,(format-errors))))
+
+(def-chat-handler rates
+    :matcher (lambda (msg) (string= (chat-message-text msg) "rates"))
+    :help "rates - display default rates"
+    :handler (lambda (r)
+               (declare (ignore r))
+               `(:reply ,(format-rates (get-rates '("USDRUB" "EURRUB"))))))
+
+(def-chat-handler rates2
+    :matcher (lambda (msg) (ppcre:register-groups-bind (curr1 curr2)
+                          ("^rates ([^\\s]+) ([^\\s]+)$" (chat-message-text msg))
+                        (cons curr1 curr2)))
+    :help "rates X - display rates for X"
+    :handler (lambda (r)
+              `(:reply ,(format-rates (get-rates (list (concatenate 'string
+                                                                    (car r)
+                                                                    (cdr r))))))))
+
+(def-chat-handler convert
+    :matcher (lambda (msg) (ppcre:register-groups-bind (amount from to)
+                          ("^rates ([0-9]+) ([^\\s]+) to ([^\\s]+)$" (chat-message-text msg))
+                        (list amount from to)))
+    :help "rates N C1 to C2 - convert N money from C1 to C2"
+    :handler (lambda (r)
+               (let* ((converted (convert-money (read-from-string amount) from to))
+                      (reply (multiple-value-bind (flr ceil) (round converted)
+                               (if (zerop ceil)
+                                   (format nil "~a ~a = ~,,'.:d ~a" amount from flr to)
+                                   (format nil "~a ~a = ~a ~a" amount from converted to)))))
+                 `(:reply ,reply))))
+
+(def-chat-handler say
+    :matcher (lambda (msg) (string= (chat-message-text msg) "say"))
+    :help "say - says fortune"
+    :handler (lambda (r)
+               (declare (ignore r))
+               `(:reply ,(fortune :short t))))
+
+(def-chat-handler echo
+    :matcher (lambda (msg) (ppcre:register-groups-bind (text)
+                          ("^saychat (.*)$" (chat-message-text msg))
+                        text))
+    :help "say X - says X"
+    :handler (lambda (r) `(:reply ,r)))
+
+(def-chat-handler ideas
+    :matcher (lambda (msg) (string= "ideas" (chat-message-text msg)))
+    :help "ideas - display ideas"
+    :handler (lambda (r) `(:reply ,(format-ideas 10))))
+
+(def-chat-handler add-idea
+    :matcher (lambda (msg) (ppcre:register-groups-bind (idea)
+                          ("^idea (.+)$" (chat-message-text msg))))
+    :help "idea X - save X to ideas list"
+    :handler (lambda (idea)
+               (add-idea (xmpp:from message) idea)
+               `(:reply "waiting for pull requests here: https://github.com/maximvl/lbot/pulls")))
+
+(def-chat-handler question
+    :matcher (lambda (msg) (string= "?" (chat-message-text msg)))
+    :help "? - display advice"
+    :handler (lambda (r)
+               (declare (ignore r))
+               `(:reply ,(get-random-advice))))
+
+(def-chat-handler sources
+    :matcher (lambda (msg) (string= "src" (chat-message-text msg)))
+    :help "src - show sources repo"
+    :handler (lambda (r)
+               (declare (ignore r))
+               `(:reply "https://github.com/maximvl/lbot")))
+
+
+(setf *chat-handlers* (nreverse *chat-handlers*))
