@@ -153,8 +153,11 @@
                    (xmpp::type- message)))
       ((optima.ppcre:ppcre "^rates ([0-9]+) ([^\\s]+) to ([^\\s]+)$" amount from to)
        (reply-chat connection (xmpp:from message)
-                   (format nil "~a ~a = ~a ~a" amount from
-                           (convert-money (read-from-string amount) from to) to)
+                   (let* ((converted (convert-money (read-from-string amount) from to)))
+                     (multiple-value-bind (flr ceil) (round converted)
+                       (if (zerop ceil)
+                           (format nil "~a ~a = ~,,'.:d ~a" amount from flr to)
+                           (format nil "~a ~a = ~a ~a" amount from converted to))))
                    (xmpp::type- message)))
       ((optima.ppcre:ppcre "^say$")
        (reply-chat connection (xmpp:from message)
