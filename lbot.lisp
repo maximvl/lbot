@@ -344,9 +344,10 @@
                     ((optima.ppcre:ppcre "(http[s]?://[\\S]+)" url)
                      (let ((reply 
                             (handler-case (let ((data (readability-parse url)))
-                                            (format nil "~a [~a words]"
+                                            (format nil "~a [~a words]~%~a"
                                                     (cdr (assoc :title data))
-                                                    (cdr (assoc :word--count data))))
+                                                    (cdr (assoc :word--count data))
+                                                    (html-entities:decode-entities (cdr (assoc :excerpt data)))))
                               (error () (get-http-page-title url)))))
                        (when reply
                          (reply-chat connection (xmpp:from message)
