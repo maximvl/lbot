@@ -290,7 +290,7 @@
                  (t #'(lambda (data stream)
                         (declare (ignore stream))
                         (get-erl-man-module-discription data))))))
-          (read-until stream condition :result-only t))))))
+          (format nil "~a~&~a" link (read-until stream condition :result-only t)))))))
 
 (defun get-rates (pairs)
   (let ((api-url (format nil "http://finance.yahoo.com/d/quotes.csv?e=.csv&f=sl1d1t1&s=~{~a=X~^+~}" pairs)))
