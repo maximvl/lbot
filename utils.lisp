@@ -500,3 +500,14 @@
             (json:decode-json-from-string data)
             (error (format nil "readability api call returned ~a: ~a"
                            status (json:decode-json-from-string data))))))))
+
+(defun remove-tags (str)
+  (check-type str string)
+  (ppcre:regex-replace-all "\\s+" (sanitize:clean str) " "))
+
+(defun random-substr (str &optional (size 100))
+  (check-type str string)
+  (check-type size integer)
+  (let* ((max (length str))
+         (start (random (- max size))))
+    (subseq str start (+ start size))))
