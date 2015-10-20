@@ -20,7 +20,8 @@
                #:cl-json
                #:local-time
                #:rss
-               #:xmls)
+               #:xmls
+               #:sanitize)
   :components ((:file "package")
                (:file "lbot")
                (:file "utils")
