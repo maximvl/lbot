@@ -166,20 +166,21 @@
                       (ppcre:register-groups-bind
                           (title)
                           ("(?i)<title>([^<]*)</title>" data :sharedp t)
-                        (setf title-set (html-entities:decode-entities title))))
+                        (setf title-set title)))
                     (cond
                       ((and charset-set title-set) t)
                       ((ppcre:all-matches "(?i)</head>" data) t)
                       (t nil)))
                 :result-only t
                 :buff-size buff-size)
-    (if charset-set
-        (let ((format (flexi-format-to-keyword
-                       (flexi-streams:flexi-stream-external-format stream))))
-          (if (eq format charset-set)
-              title-set
-              (convert-string title-set format (babel:make-external-format charset-set))))
-        title-set)))
+    (html-entities:decode-entities 
+     (if charset-set
+         (let ((format (flexi-format-to-keyword
+                        (flexi-streams:flexi-stream-external-format stream))))
+           (if (eq format charset-set)
+               title-set
+               (convert-string title-set format (babel:make-external-format charset-set))))
+         title-set))))
 
 (defun flexi-format-to-keyword (format)
   (let* ((name (flexi-streams:external-format-name format))
