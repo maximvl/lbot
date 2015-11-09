@@ -252,6 +252,12 @@
                       (error (e) (format nil "~a" e)))))
          (reply-chat connection (xmpp:from message)
                      reply (xmpp::type- message))))
+      ((optima.ppcre:ppcre "^tr (.+) to ([a-zA-Z]{2})$" text lang-to)
+       (let ((reply (handler-case (yandex-translate text lang-to)
+                      (error (e) (format nil "~a" e)))))
+         (reply-chat connection (xmpp:from message)
+                     reply (xmpp::type- message))))
+      
       ((or (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.jpg)" url)
            (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.jpeg)" url)
            (optima.ppcre:ppcre "(?i)(http[s]?://[\\S]+.png)" url)
@@ -348,8 +354,8 @@
                                   (format nil "~a [~a words]~%~a"
                                           (cdr (assoc :title data))
                                           (cdr (assoc :word--count data))
-                                          (random-substr
-                                           (remove-tags (cdr (assoc :excerpt data))))))
+                                          (subseq (remove-tags (cdr (assoc :excerpt data)))
+                                                  0 200)))
                               (error () (get-http-page-title url)))))
                        (when reply
                          (reply-chat connection (xmpp:from message)
